@@ -1,0 +1,63 @@
+import { describe, expect, it } from 'vitest'
+import { generatePlan, alternatives } from '../generator'
+import { suggest } from '../progression'
+import { weeklyRate, gainAdvice } from '../stats'
+import { getExercise } from '../../data/exercises'
+import type { Profile, Session } from '../../types'
+
+const base: Profile = { sex: 'male', age: 25, heightCm: 180, weightKg: 70, experience: 'beginner', equipment: [], weekdays: [0, 2, 4], minutes: 60 }
+
+describe('generatePlan', () => {
+  for (const [label, eq] of [
+    ['bodyweight', []],
+    ['home', ['dumbbells', 'pullupBar']],
+    ['gym', ['barbell', 'rack', 'bench', 'dumbbells', 'pullupBar', 'dipBars', 'cable', 'machines']],
+  ] as const) {
+    for (const days of [1, 2, 3, 4, 5, 6]) {
+      it(`${label}, ${days} days`, () => {
+        const p = { ...base, equipment: [...eq], weekdays: [0, 1, 2, 3, 4, 5].slice(0, days) }
+        const plan = generatePlan(p)
+        expect(plan.days).toHaveLength(days)
+        for (const d of plan.days) {
+          expect(d.exercises.length).toBeGreaterThanOrEqual(4)
+          expect(d.exercises.length).toBeLessThanOrEqual(6)
+          const ids = d.exercises.map((e) => e.exerciseId)
+          expect(new Set(ids).size).toBe(ids.length)
+          for (const id of ids) for (const n of getExercise(id).needs) expect(p.equipment).toContain(n)
+        }
+      })
+    }
+  }
+  it('beginner never gets level-3 lifts', () => {
+    const plan = generatePlan({ ...base, equipment: ['barbell', 'rack', 'bench'] })
+    expect(plan.days.flatMap((d) => d.exercises).every((e) => getExercise(e.exerciseId).level < 3)).toBe(true)
+  })
+  it('alternatives keep pattern', () => {
+    const p = { ...base, equipment: ['dumbbells', 'bench', 'barbell', 'rack'] as Profile['equipment'] }
+    const alts = alternatives('bb-bench', p, ['bb-bench'])
+    expect(alts.length).toBeGreaterThan(0)
+    expect(alts.every((a) => a.pattern === 'hPush')).toBe(true)
+  })
+})
+
+const sess = (date: string, weight: number, reps: number[]): Session => ({
+  id: date, dayId: 'd1', dayTitle: 'x', startedAt: date + 'T10:00:00Z', finishedAt: date + 'T11:00:00Z',
+  exercises: [{ exerciseId: 'bb-squat', repMin: 6, repMax: 10, sets: reps.map((r) => ({ weight, reps: r, done: true })) }],
+})
+const planned = { exerciseId: 'bb-squat', sets: 3, repMin: 6, repMax: 10, restSec: 150 }
+
+describe('progression', () => {
+  it('new', () => expect(suggest(planned, []).kind).toBe('new'))
+  it('up when all at top', () => expect(suggest(planned, [sess('2026-01-01', 60, [10, 10, 10])])).toMatchObject({ kind: 'up', weight: 62.5 }))
+  it('same when in range', () => expect(suggest(planned, [sess('2026-01-01', 60, [10, 9, 8])])).toMatchObject({ kind: 'same', weight: 60 }))
+  it('deload after two misses', () =>
+    expect(suggest(planned, [sess('2026-01-01', 60, [5, 4, 4]), sess('2026-01-03', 60, [5, 5, 4])])).toMatchObject({ kind: 'down', weight: 54 }))
+})
+
+describe('weight rate', () => {
+  it('computes kg/week', () => {
+    const r = weeklyRate([{ date: '2026-01-01', kg: 70 }, { date: '2026-01-15', kg: 70.6 }])!
+    expect(r).toBeCloseTo(0.3, 2)
+    expect(gainAdvice(r, 70).tone).toBe('good')
+  })
+})
