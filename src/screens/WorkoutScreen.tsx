@@ -130,7 +130,7 @@ export function WorkoutScreen({ onFinish }: { onFinish: (to: 'plan' | 'progress'
       {session.exercises.map((ex, ei) => {
         const e = getExercise(ex.exerciseId)
         const planned = day?.exercises.find((pe) => pe.exerciseId === ex.exerciseId) ?? { exerciseId: ex.exerciseId, sets: ex.sets.length, repMin: ex.repMin, repMax: ex.repMax, restSec: 90 }
-        const sug = suggest(planned, state.sessions)
+        const sug = suggest(planned, state.sessions, state.profile)
         const prev = lastReps(planned, state.sessions)
         const weighted = e.load !== 'bodyweight' && e.load !== 'band'
         return (
@@ -146,7 +146,7 @@ export function WorkoutScreen({ onFinish }: { onFinish: (to: 'plan' | 'progress'
 
             <div className="mt-3 grid grid-cols-[28px_1fr_1fr_48px] items-center gap-2 text-xs text-white/40">
               <div>#</div>
-              <div>{weighted ? 'Вес, кг' : e.load === 'band' ? 'Резинка' : 'Доп. вес'}</div>
+              <div>{e.load === 'dumbbell' ? 'Гантель, кг' : weighted ? 'Вес, кг' : e.load === 'band' ? 'Резинка' : 'Доп. вес'}</div>
               <div>{e.timed ? 'Секунд' : 'Повторы'}</div>
               <div />
             </div>

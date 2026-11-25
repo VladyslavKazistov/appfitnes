@@ -1,5 +1,6 @@
 import { getExercise } from '../data/exercises'
-import type { ExerciseLog, Load, PlannedExercise, Session } from '../types'
+import type { ExerciseLog, Load, PlannedExercise, Profile, Session } from '../types'
+import { availableWeights, nextUp, snapDown } from './weights'
 
 export interface Suggestion {
   weight: number | null
@@ -42,14 +43,20 @@ function missed(log: ExerciseLog): boolean {
 }
 
 /** Двойная прогрессия: сначала добираем повторы до верхней границы, потом добавляем вес. */
-export function suggest(planned: PlannedExercise, sessions: Session[]): Suggestion {
+export function suggest(planned: PlannedExercise, sessions: Session[], profile?: Profile | null): Suggestion {
   const e = getExercise(planned.exerciseId)
+  const list = availableWeights(e.load, profile)
+  const perHand = e.load === 'dumbbell' ? ' (вес одной гантели)' : ''
   const logs = history(planned.exerciseId, sessions)
   const unit = e.timed ? 'сек' : 'повт.'
   if (logs.length === 0) {
     if (e.load === 'bodyweight' || e.load === 'band')
       return { weight: null, kind: 'new', note: `Первый раз: делай ${planned.repMin}–${planned.repMax} ${unit}, оставляя 1–2 в запасе.` }
-    return { weight: null, kind: 'new', note: 'Первый раз: подбери вес, при котором последние 2 повтора даются тяжело, но технично.' }
+    return {
+      weight: null,
+      kind: 'new',
+      note: `Первый раз: подбери вес${e.load === 'dumbbell' ? ' гантелей' : ''}, при котором последние 2 повтора даются тяжело, но технично.${list ? ` Доступно: ${list.length > 8 ? `${list[0]}–${list[list.length - 1]}` : list.join(', ')} кг.` : ''}`,
+    }
   }
   const last = logs[0]
   const w = workingWeight(last)
@@ -58,11 +65,13 @@ export function suggest(planned: PlannedExercise, sessions: Session[]): Suggesti
   if (hitTop(last, planned.sets)) {
     if (noWeight)
       return { weight: w, kind: 'harder', note: `Все подходы на ${planned.repMax}+ — пора усложнить: медленнее темп, пауза внизу, рюкзак с весом или вариант посложнее.` }
-    const nw = round(w! + step(e.load, w!))
-    return { weight: nw, kind: 'up', note: `В прошлый раз всё выполнено — добавляем вес: ${w} → ${nw} кг.` }
+    const nw = list ? nextUp(w!, list) : round(w! + step(e.load, w!))
+    if (nw == null)
+      return { weight: w, kind: 'harder', note: `${w} кг — твой максимум${perHand}, и он уже на ${planned.repMax}+. Опускай вес 3 секунды, держи паузу 1 с внизу и добавь +1 подход.` }
+    return { weight: nw, kind: 'up', note: `В прошлый раз всё выполнено — добавляем вес: ${w} → ${nw} кг${perHand}. Повторов станет меньше, это нормально, снова набирай до ${planned.repMax}.` }
   }
   if (missed(last) && logs[1] && missed(logs[1]) && !noWeight) {
-    const nw = round(w! * 0.9)
+    const nw = list ? snapDown(w! * 0.9, list) : round(w! * 0.9)
     return { weight: nw, kind: 'down', note: `Две тренировки подряд не дотягиваешь до ${planned.repMin} — разгрузка: ${nw} кг, и снова вверх.` }
   }
   return {
@@ -70,7 +79,7 @@ export function suggest(planned: PlannedExercise, sessions: Session[]): Suggesti
     kind: 'same',
     note: noWeight
       ? `Цель — на 1 ${unit === 'сек' ? 'секунду больше' : 'повтор больше'}, чем в прошлый раз, в каждом подходе.`
-      : `Тот же вес ${w} кг, постарайся добавить по повтору (цель ${planned.repMax}).`,
+      : `Тот же вес ${w} кг${perHand}, постарайся добавить по повтору (цель ${planned.repMax}).`,
   }
 }
 

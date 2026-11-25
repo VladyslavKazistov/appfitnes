@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { EQUIPMENT } from '../data/exercises'
-import type { Equipment, Experience, Profile } from '../types'
+import type { Equipment, Profile } from '../types'
+import { DEFAULT_BAR, DEFAULT_DUMBBELLS } from '../lib/weights'
 import { WEEKDAYS } from '../lib/stats'
 import { Button, Card, Chip, Label, Stepper } from '../components/ui'
 
@@ -9,27 +10,19 @@ const DEFAULT: Profile = {
   age: 25,
   heightCm: 178,
   weightKg: 72,
-  experience: 'beginner',
-  equipment: ['dumbbells', 'pullupBar'],
+  experience: 'advanced',
+  equipment: ['dumbbells', 'bench', 'barbell', 'mat'],
+  dumbbells: DEFAULT_DUMBBELLS,
+  bar: DEFAULT_BAR,
   weekdays: [0, 2, 4],
   minutes: 60,
 }
 
-const PRESETS: { label: string; eq: Equipment[] }[] = [
-  { label: 'Ничего (только вес тела)', eq: [] },
-  { label: 'Дом: гантели + турник', eq: ['dumbbells', 'pullupBar'] },
-  { label: 'Полный зал', eq: ['barbell', 'rack', 'bench', 'dumbbells', 'pullupBar', 'dipBars', 'cable', 'machines'] },
-]
-
-const EXP: { id: Experience; label: string; hint: string }[] = [
-  { id: 'beginner', label: 'Новичок', hint: 'меньше 6 месяцев регулярных тренировок' },
-  { id: 'intermediate', label: 'Средний', hint: '6 месяцев – 2 года' },
-  { id: 'advanced', label: 'Опытный', hint: 'больше 2 лет' },
-]
-
 export function ProfileForm({ initial, onSave, submitLabel }: { initial?: Profile | null; onSave: (p: Profile) => void; submitLabel: string }) {
-  const [p, setP] = useState<Profile>(initial ?? DEFAULT)
+  const [p, setP] = useState<Profile>(initial ? { ...DEFAULT, ...initial, experience: 'advanced' } : DEFAULT)
   const set = <K extends keyof Profile>(k: K, v: Profile[K]) => setP((x) => ({ ...x, [k]: v }))
+  const dumb = p.dumbbells ?? DEFAULT_DUMBBELLS
+  const bar = p.bar ?? DEFAULT_BAR
   const toggleEq = (id: Equipment) => set('equipment', p.equipment.includes(id) ? p.equipment.filter((e) => e !== id) : [...p.equipment, id])
   const toggleDay = (d: number) => set('weekdays', p.weekdays.includes(d) ? p.weekdays.filter((x) => x !== d) : [...p.weekdays, d].sort())
 
@@ -58,31 +51,7 @@ export function ProfileForm({ initial, onSave, submitLabel }: { initial?: Profil
       </Card>
 
       <Card>
-        <Label>Опыт тренировок</Label>
-        <div className="grid gap-2">
-          {EXP.map((e) => (
-            <button
-              key={e.id}
-              type="button"
-              onClick={() => set('experience', e.id)}
-              className={`rounded-xl px-4 py-3 text-left ring-1 transition ${p.experience === e.id ? 'bg-accent/15 ring-accent/50' : 'bg-white/5 ring-white/10'}`}
-            >
-              <div className={p.experience === e.id ? 'text-accent font-medium' : ''}>{e.label}</div>
-              <div className="text-xs text-white/50">{e.hint}</div>
-            </button>
-          ))}
-        </div>
-      </Card>
-
-      <Card>
         <Label>Инвентарь</Label>
-        <div className="mb-3 flex flex-wrap gap-2">
-          {PRESETS.map((pr) => (
-            <button key={pr.label} type="button" onClick={() => set('equipment', pr.eq)} className="rounded-lg bg-white/5 px-3 py-1.5 text-xs text-white/60 ring-1 ring-white/10">
-              {pr.label}
-            </button>
-          ))}
-        </div>
         <div className="flex flex-wrap gap-2">
           {EQUIPMENT.map((e) => (
             <Chip key={e.id} active={p.equipment.includes(e.id)} onClick={() => toggleEq(e.id)}>
@@ -90,7 +59,41 @@ export function ProfileForm({ initial, onSave, submitLabel }: { initial?: Profil
             </Chip>
           ))}
         </div>
-        <p className="mt-3 text-xs text-white/40">Если ничего не выбрано, план будет на весе тела.</p>
+        {p.equipment.includes('dumbbells') && (
+          <div className="mt-4 grid gap-3 rounded-xl bg-white/3 p-3">
+            <div className="text-sm text-white/70">Гантели (вес одной гантели)</div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">От, кг</span>
+              <Stepper value={dumb.min} onChange={(v) => set('dumbbells', { ...dumb, min: v })} step={0.5} min={0.5} max={dumb.max} />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">До, кг</span>
+              <Stepper value={dumb.max} onChange={(v) => set('dumbbells', { ...dumb, max: v })} step={0.5} min={dumb.min} max={100} />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Шаг, кг</span>
+              <Stepper value={dumb.step} onChange={(v) => set('dumbbells', { ...dumb, step: v })} step={0.5} min={0.5} max={20} />
+            </div>
+          </div>
+        )}
+        {p.equipment.includes('barbell') && (
+          <div className="mt-3 grid gap-3 rounded-xl bg-white/3 p-3">
+            <div className="text-sm text-white/70">Гриф</div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Вес грифа, кг</span>
+              <Stepper value={bar.weight} onChange={(v) => set('bar', { ...bar, weight: v })} step={0.5} min={1} max={25} />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Блинов всего, кг</span>
+              <Stepper value={bar.maxPlates} onChange={(v) => set('bar', { ...bar, maxPlates: v })} step={2.5} min={0} max={300} />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Шаг добавки, кг</span>
+              <Stepper value={bar.step} onChange={(v) => set('bar', { ...bar, step: v })} step={0.5} min={0.5} max={10} />
+            </div>
+          </div>
+        )}
+        <p className="mt-3 text-xs text-white/40">Отжимания и упражнения на весе тела доступны всегда.</p>
       </Card>
 
       <Card>

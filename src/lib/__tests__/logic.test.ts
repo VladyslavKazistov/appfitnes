@@ -20,7 +20,7 @@ describe('generatePlan', () => {
         expect(plan.days).toHaveLength(days)
         for (const d of plan.days) {
           expect(d.exercises.length).toBeGreaterThanOrEqual(4)
-          expect(d.exercises.length).toBeLessThanOrEqual(6)
+          expect(d.exercises.length).toBeLessThanOrEqual(7)
           const ids = d.exercises.map((e) => e.exerciseId)
           expect(new Set(ids).size).toBe(ids.length)
           for (const id of ids) for (const n of getExercise(id).needs) expect(p.equipment).toContain(n)
@@ -59,5 +59,40 @@ describe('weight rate', () => {
     const r = weeklyRate([{ date: '2026-01-01', kg: 70 }, { date: '2026-01-15', kg: 70.6 }])!
     expect(r).toBeCloseTo(0.3, 2)
     expect(gainAdvice(r, 70).tone).toBe('good')
+  })
+})
+
+describe('home setup: dumbbells 5–25 step 5, bench, short bar', () => {
+  const home: Profile = {
+    ...base, experience: 'advanced', equipment: ['dumbbells', 'bench', 'barbell', 'mat'],
+    dumbbells: { min: 5, max: 25, step: 5 }, bar: { weight: 7, maxPlates: 30, step: 2.5 },
+  }
+  const dbPlanned = { exerciseId: 'db-bench', sets: 3, repMin: 8, repMax: 15, restSec: 120 }
+  const dbSess = (date: string, weight: number, reps: number[]): Session => ({
+    id: date, dayId: 'd1', dayTitle: 'x', startedAt: date + 'T10:00:00Z', finishedAt: date + 'T11:00:00Z',
+    exercises: [{ exerciseId: 'db-bench', repMin: 8, repMax: 15, sets: reps.map((r) => ({ weight, reps: r, done: true })) }],
+  })
+  it('jumps to next real dumbbell', () => expect(suggest(dbPlanned, [dbSess('2026-01-01', 15, [15, 15, 15])], home)).toMatchObject({ kind: 'up', weight: 20 }))
+  it('at max dumbbell asks for harder variant', () => expect(suggest(dbPlanned, [dbSess('2026-01-01', 25, [15, 15, 15])], home)).toMatchObject({ kind: 'harder', weight: 25 }))
+  it('deload snaps to real dumbbell', () =>
+    expect(suggest(dbPlanned, [dbSess('2026-01-01', 20, [5, 5, 5]), dbSess('2026-01-03', 20, [6, 5, 5])], home)).toMatchObject({ kind: 'down', weight: 15 }))
+  it('plan uses only home equipment and higher reps', () => {
+    const plan = generatePlan({ ...home, weekdays: [0, 2, 4, 5] })
+    const all = plan.days.flatMap((d) => d.exercises)
+    for (const pe of all) for (const n of getExercise(pe.exerciseId).needs) expect(home.equipment).toContain(n)
+    expect(all.some((pe) => getExercise(pe.exerciseId).load === 'barbell')).toBe(true)
+    expect(all.filter((pe) => getExercise(pe.exerciseId).load === 'dumbbell').every((pe) => pe.repMax >= 15)).toBe(true)
+  })
+})
+
+describe('migrate old profile', async () => {
+  const { migrate, EMPTY } = await import('../storage')
+  it('switches to advanced and home equipment', () => {
+    const old = { ...EMPTY, profile: { ...base, equipment: ['dumbbells', 'pullupBar', 'bench'] as Profile['equipment'] }, plan: null }
+    const st = migrate(old)
+    expect(st.profile!.experience).toBe('advanced')
+    expect(st.profile!.equipment).toEqual(['dumbbells', 'bench'])
+    expect(st.profile!.dumbbells).toEqual({ min: 5, max: 25, step: 5 })
+    expect(st.plan).not.toBeNull()
   })
 })

@@ -1,12 +1,13 @@
 import { EXERCISES, getExercise } from '../data/exercises'
 import type { Equipment, Exercise, Experience, Load, Pattern, Plan, PlanDay, PlannedExercise, Profile } from '../types'
+import { capacity, isLightLoad } from './weights'
 
 type Template = { title: string; focus: string; slots: Pattern[] }
 
 const T: Record<string, Template> = {
-  fbA: { title: 'Всё тело A', focus: 'Присед, жим, тяга', slots: ['squat', 'hPush', 'hPull', 'hinge', 'vPush', 'vPull', 'biceps', 'triceps', 'sideDelt', 'core'] },
-  fbB: { title: 'Всё тело B', focus: 'Тяга, жим вверх, спина', slots: ['hinge', 'vPush', 'vPull', 'lunge', 'hPush', 'hPull', 'sideDelt', 'triceps', 'biceps', 'calves'] },
-  fbC: { title: 'Всё тело C', focus: 'Ноги, грудь, руки', slots: ['squat', 'hPush', 'vPull', 'lunge', 'hPull', 'rearDelt', 'biceps', 'triceps', 'core'] },
+  fbA: { title: 'Всё тело A', focus: 'Присед, жим, тяга', slots: ['squat', 'hPush', 'hPull', 'hinge', 'vPush', 'biceps', 'triceps', 'vPull', 'sideDelt', 'core'] },
+  fbB: { title: 'Всё тело B', focus: 'Тяга, жим вверх, спина', slots: ['hinge', 'vPush', 'vPull', 'lunge', 'hPush', 'triceps', 'biceps', 'hPull', 'sideDelt', 'calves'] },
+  fbC: { title: 'Всё тело C', focus: 'Ноги, грудь, руки', slots: ['squat', 'hPush', 'vPull', 'lunge', 'hPull', 'biceps', 'triceps', 'rearDelt', 'core'] },
   upper: { title: 'Верх', focus: 'Грудь, спина, плечи, руки', slots: ['hPush', 'hPull', 'vPush', 'vPull', 'sideDelt', 'biceps', 'triceps', 'chestIso', 'rearDelt'] },
   lower: { title: 'Низ', focus: 'Ноги, ягодицы, кор', slots: ['squat', 'hinge', 'lunge', 'hamCurl', 'calves', 'quadIso', 'core'] },
   push: { title: 'Жим', focus: 'Грудь, плечи, трицепс', slots: ['hPush', 'vPush', 'chestIso', 'sideDelt', 'triceps', 'hPush', 'triceps'] },
@@ -39,27 +40,37 @@ export function isAvailable(e: Exercise, equipment: Equipment[]): boolean {
   return e.needs.every((n) => equipment.includes(n))
 }
 
-function score(e: Exercise, experience: Experience): number {
+type Ctx = Pick<Profile, 'equipment' | 'experience'> & Partial<Profile>
+
+function score(e: Exercise, profile: Ctx): number {
   let s = LOAD_RANK[e.load]
   if (e.pattern === 'vPull' && e.id.startsWith('pull')) s += 1 // подтягивания — король вертикальной тяги
   if (e.pattern === 'vPull' && !e.compound) s -= 2
   if (e.id === 'db-floor-press' || e.id.endsWith('goblet-squat')) s -= 1 // запасные варианты, если нет скамьи / штанги
-  if (experience === 'beginner') {
+  if (profile.experience === 'beginner') {
     if (e.level === 3) s -= 100
     if (e.level === 2) s -= 1
+  }
+  if (profile.heightCm) {
+    const p = profile as Profile
+    const cap = capacity(p)
+    // Лёгкий гриф хорош для рук, а в базовых движениях гантели дают больше веса.
+    if (e.load === 'barbell' && e.compound && cap.barbell < cap.dumbbell) s -= 1
+    // С лёгкими весами упражнения на одну ногу нагружают мышцы сильнее.
+    if (isLightLoad(p) && (e.id === 'db-sl-rdl' || e.id === 'db-split-squat')) s += 1
   }
   return s
 }
 
-export function candidates(pattern: Pattern, profile: Pick<Profile, 'equipment' | 'experience'>, exclude: string[] = []): Exercise[] {
+export function candidates(pattern: Pattern, profile: Ctx, exclude: string[] = []): Exercise[] {
   return EXERCISES.filter((e) => e.pattern === pattern && isAvailable(e, profile.equipment) && !exclude.includes(e.id))
-    .map((e) => ({ e, s: score(e, profile.experience) }))
+    .map((e) => ({ e, s: score(e, profile) }))
     .filter((x) => x.s > -50)
     .sort((a, b) => b.s - a.s)
     .map((x) => x.e)
 }
 
-export function prescription(e: Exercise, slotIndex: number, experience: Experience): Omit<PlannedExercise, 'exerciseId'> {
+export function prescription(e: Exercise, slotIndex: number, experience: Experience, light = false): Omit<PlannedExercise, 'exerciseId'> {
   const main = slotIndex < 2 && e.compound
   if (e.timed) return { sets: 3, repMin: 20, repMax: 45, restSec: 60 }
   if (e.load === 'band') return { sets: 3, repMin: 12, repMax: 20, restSec: 60 }
@@ -68,6 +79,12 @@ export function prescription(e: Exercise, slotIndex: number, experience: Experie
       ? { sets: experience === 'beginner' ? 3 : 4, repMin: 6, repMax: 15, restSec: 90 }
       : { sets: 3, repMin: 10, repMax: 20, restSec: 60 }
   }
+  if (light && (e.load === 'dumbbell' || e.load === 'barbell' || e.load === 'kettlebell')) {
+    // Вес ограничен — растим мышцы за счёт повторов, доводя подходы почти до отказа.
+    if (main) return { sets: experience === 'beginner' ? 3 : 4, repMin: 8, repMax: 15, restSec: 120 }
+    if (e.compound) return { sets: 3, repMin: 10, repMax: 15, restSec: 90 }
+    return { sets: 3, repMin: 12, repMax: 20, restSec: 60 }
+  }
   if (main) return { sets: experience === 'beginner' ? 3 : 4, repMin: 6, repMax: 10, restSec: 150 }
   if (e.compound) return { sets: 3, repMin: 8, repMax: 12, restSec: 120 }
   return { sets: 3, repMin: 10, repMax: 15, restSec: 75 }
@@ -75,7 +92,8 @@ export function prescription(e: Exercise, slotIndex: number, experience: Experie
 
 function buildDay(tplKey: string, variant: number, profile: Profile, weekday: number, idx: number): PlanDay {
   const tpl = T[tplKey]
-  const limit = exercisesPerSession(profile.minutes)
+  // С лёгкими весами отдых короче, поэтому за то же время помещается на одно упражнение больше.
+  const limit = exercisesPerSession(profile.minutes) + (isLightLoad(profile) ? 1 : 0)
   const used: string[] = []
   const exercises: PlannedExercise[] = []
   for (const pattern of tpl.slots) {
@@ -83,11 +101,11 @@ function buildDay(tplKey: string, variant: number, profile: Profile, weekday: nu
     const list = candidates(pattern, profile, used)
     if (list.length === 0) continue
     // Чередуем упражнения между одинаковыми днями (Верх 1 / Верх 2), но только среди почти равноценных.
-    const best = score(list[0], profile.experience)
-    const pool = list.filter((e) => score(e, profile.experience) >= best - 0.75 && e.compound === list[0].compound).slice(0, 2)
+    const best = score(list[0], profile)
+    const pool = list.filter((e) => score(e, profile) >= best - 0.75 && e.compound === list[0].compound).slice(0, 2)
     const pick = pool[variant % pool.length]
     used.push(pick.id)
-    exercises.push({ exerciseId: pick.id, ...prescription(pick, exercises.length, profile.experience) })
+    exercises.push({ exerciseId: pick.id, ...prescription(pick, exercises.length, profile.experience, isLightLoad(profile)) })
   }
   return {
     id: `d${idx + 1}`,
@@ -125,7 +143,7 @@ export function swapExercise(plan: Plan, dayId: string, index: number, newId: st
       const exercises = d.exercises.map((pe, i) => {
         if (i !== index) return pe
         const e = getExercise(newId)
-        return { exerciseId: newId, ...prescription(e, i, profile.experience) }
+        return { exerciseId: newId, ...prescription(e, i, profile.experience, isLightLoad(profile)) }
       })
       return { ...d, exercises }
     }),

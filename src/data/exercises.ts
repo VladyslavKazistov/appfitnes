@@ -2,15 +2,9 @@ import type { Equipment, Exercise, Pattern } from '../types'
 
 export const EQUIPMENT: { id: Equipment; label: string }[] = [
   { id: 'dumbbells', label: 'Гантели' },
-  { id: 'barbell', label: 'Штанга' },
-  { id: 'rack', label: 'Стойки / рама для штанги' },
   { id: 'bench', label: 'Скамья' },
-  { id: 'pullupBar', label: 'Турник' },
-  { id: 'dipBars', label: 'Брусья' },
-  { id: 'kettlebell', label: 'Гиря' },
-  { id: 'bands', label: 'Резинки-эспандеры' },
-  { id: 'cable', label: 'Блочные тренажёры' },
-  { id: 'machines', label: 'Силовые тренажёры' },
+  { id: 'barbell', label: 'Гриф с блинами' },
+  { id: 'mat', label: 'Коврик' },
 ]
 
 export const PATTERN_LABEL: Record<Pattern, string> = {
@@ -44,7 +38,7 @@ export const EXERCISES: Exercise[] = [
   ex({ id: 'band-squat', name: 'Приседания с резинкой', pattern: 'squat', needs: ['bands'], load: 'band', compound: true, level: 1 }),
 
   // ── Тяга / задняя цепь
-  ex({ id: 'bb-rdl', name: 'Румынская тяга со штангой', pattern: 'hinge', needs: ['barbell'], load: 'barbell', compound: true, level: 2, tip: 'Таз назад, штанга скользит по бёдрам, лёгкий сгиб в коленях.' }),
+  ex({ id: 'bb-rdl', name: 'Румынская тяга с грифом', pattern: 'hinge', needs: ['barbell'], load: 'barbell', compound: true, level: 2, tip: 'Таз назад, штанга скользит по бёдрам, лёгкий сгиб в коленях.' }),
   ex({ id: 'bb-deadlift', name: 'Становая тяга', pattern: 'hinge', needs: ['barbell'], load: 'barbell', compound: true, level: 3 }),
   ex({ id: 'db-rdl', name: 'Румынская тяга с гантелями', pattern: 'hinge', needs: ['dumbbells'], load: 'dumbbell', compound: true, level: 1 }),
   ex({ id: 'kb-swing', name: 'Махи гирей', pattern: 'hinge', needs: ['kettlebell'], load: 'kettlebell', compound: true, level: 2 }),
@@ -69,7 +63,7 @@ export const EXERCISES: Exercise[] = [
   ex({ id: 'deficit-pushup', name: 'Отжимания с упорами (глубокие)', pattern: 'hPush', needs: [], load: 'bodyweight', compound: true, level: 2, tip: 'Руки на книгах или стульях, чтобы грудь опускалась ниже кистей.' }),
 
   // ── Вертикальный жим
-  ex({ id: 'bb-ohp', name: 'Жим штанги стоя', pattern: 'vPush', needs: ['barbell'], load: 'barbell', compound: true, level: 2 }),
+  ex({ id: 'bb-ohp', name: 'Жим грифа стоя', pattern: 'vPush', needs: ['barbell'], load: 'barbell', compound: true, level: 2 }),
   ex({ id: 'db-ohp', name: 'Жим гантелей сидя', pattern: 'vPush', needs: ['dumbbells'], load: 'dumbbell', compound: true, level: 1 }),
   ex({ id: 'kb-press', name: 'Жим гири одной рукой', pattern: 'vPush', needs: ['kettlebell'], load: 'kettlebell', compound: true, level: 2 }),
   ex({ id: 'machine-shoulder', name: 'Жим в тренажёре на плечи', pattern: 'vPush', needs: ['machines'], load: 'machine', compound: true, level: 1 }),
@@ -77,7 +71,7 @@ export const EXERCISES: Exercise[] = [
   ex({ id: 'band-ohp', name: 'Жим резинки вверх', pattern: 'vPush', needs: ['bands'], load: 'band', compound: true, level: 1 }),
 
   // ── Горизонтальная тяга
-  ex({ id: 'bb-row', name: 'Тяга штанги в наклоне', pattern: 'hPull', needs: ['barbell'], load: 'barbell', compound: true, level: 2 }),
+  ex({ id: 'bb-row', name: 'Тяга грифа в наклоне', pattern: 'hPull', needs: ['barbell'], load: 'barbell', compound: true, level: 2 }),
   ex({ id: 'db-row', name: 'Тяга гантели одной рукой', pattern: 'hPull', needs: ['dumbbells'], load: 'dumbbell', compound: true, level: 1 }),
   ex({ id: 'cable-row', name: 'Горизонтальная тяга блока', pattern: 'hPull', needs: ['cable'], load: 'machine', compound: true, level: 1 }),
   ex({ id: 'kb-row', name: 'Тяга гири в наклоне', pattern: 'hPull', needs: ['kettlebell'], load: 'kettlebell', compound: true, level: 1 }),
@@ -106,7 +100,7 @@ export const EXERCISES: Exercise[] = [
   ex({ id: 'band-pull-apart', name: 'Разведение резинки перед собой', pattern: 'rearDelt', needs: ['bands'], load: 'band', compound: false, level: 1 }),
   ex({ id: 'prone-ytw', name: 'Y-T-W лёжа на животе', pattern: 'rearDelt', needs: [], load: 'bodyweight', compound: false, level: 1 }),
 
-  ex({ id: 'bb-curl', name: 'Подъём штанги на бицепс', pattern: 'biceps', needs: ['barbell'], load: 'barbell', compound: false, level: 1 }),
+  ex({ id: 'bb-curl', name: 'Подъём грифа на бицепс', pattern: 'biceps', needs: ['barbell'], load: 'barbell', compound: false, level: 1 }),
   ex({ id: 'db-curl', name: 'Подъём гантелей на бицепс', pattern: 'biceps', needs: ['dumbbells'], load: 'dumbbell', compound: false, level: 1 }),
   ex({ id: 'hammer-curl', name: 'Молотки с гантелями', pattern: 'biceps', needs: ['dumbbells'], load: 'dumbbell', compound: false, level: 1 }),
   ex({ id: 'cable-curl', name: 'Сгибания рук в блоке', pattern: 'biceps', needs: ['cable'], load: 'machine', compound: false, level: 1 }),
@@ -114,12 +108,20 @@ export const EXERCISES: Exercise[] = [
   ex({ id: 'towel-curl', name: 'Сгибания с полотенцем (изометрия)', pattern: 'biceps', needs: [], load: 'bodyweight', compound: false, level: 1, timed: true, tip: 'Наступи на полотенце и тяни изо всех сил, 20–40 секунд.' }),
 
   ex({ id: 'db-oh-ext', name: 'Французский жим гантели из-за головы', pattern: 'triceps', needs: ['dumbbells'], load: 'dumbbell', compound: false, level: 1 }),
-  ex({ id: 'bb-skull', name: 'Французский жим штанги лёжа', pattern: 'triceps', needs: ['barbell', 'bench'], load: 'barbell', compound: false, level: 2 }),
+  ex({ id: 'bb-skull', name: 'Французский жим грифа лёжа', pattern: 'triceps', needs: ['barbell', 'bench'], load: 'barbell', compound: false, level: 2 }),
   ex({ id: 'cable-pushdown', name: 'Разгибания рук в блоке', pattern: 'triceps', needs: ['cable'], load: 'machine', compound: false, level: 1 }),
   ex({ id: 'band-pushdown', name: 'Разгибания рук с резинкой', pattern: 'triceps', needs: ['bands'], load: 'band', compound: false, level: 1 }),
   ex({ id: 'diamond-pushup', name: 'Отжимания узким хватом', pattern: 'triceps', needs: [], load: 'bodyweight', compound: false, level: 1 }),
   ex({ id: 'bench-dip', name: 'Обратные отжимания от скамьи', pattern: 'triceps', needs: ['bench'], load: 'bodyweight', compound: false, level: 1 }),
 
+  ex({ id: 'bb-close-press', name: 'Жим грифа узким хватом лёжа', pattern: 'triceps', needs: ['barbell', 'bench'], load: 'barbell', compound: false, level: 1, tip: 'Хват на ширине плеч, локти вдоль корпуса.' }),
+  ex({ id: 'bb-reverse-curl', name: 'Подъём грифа обратным хватом', pattern: 'biceps', needs: ['barbell'], load: 'barbell', compound: false, level: 1 }),
+  ex({ id: 'db-incline-curl', name: 'Сгибания с гантелями сидя на наклонной', pattern: 'biceps', needs: ['dumbbells', 'bench'], load: 'dumbbell', compound: false, level: 1 }),
+  ex({ id: 'db-chest-row', name: 'Тяга гантелей лёжа грудью на наклонной скамье', pattern: 'hPull', needs: ['dumbbells', 'bench'], load: 'dumbbell', compound: true, level: 1 }),
+  ex({ id: 'db-arnold', name: 'Жим Арнольда', pattern: 'vPush', needs: ['dumbbells'], load: 'dumbbell', compound: true, level: 1 }),
+  ex({ id: 'db-upright-row', name: 'Тяга гантелей к подбородку (широко)', pattern: 'sideDelt', needs: ['dumbbells'], load: 'dumbbell', compound: false, level: 1 }),
+  ex({ id: 'db-step-up', name: 'Зашагивания на скамью с гантелями', pattern: 'lunge', needs: ['dumbbells', 'bench'], load: 'dumbbell', compound: true, level: 1 }),
+  ex({ id: 'db-sl-rdl', name: 'Румынская тяга на одной ноге с гантелями', pattern: 'hinge', needs: ['dumbbells'], load: 'dumbbell', compound: true, level: 2, tip: 'При лёгких гантелях работа на одной ноге даёт мышцам достаточную нагрузку.' }),
   ex({ id: 'leg-curl', name: 'Сгибания ног в тренажёре', pattern: 'hamCurl', needs: ['machines'], load: 'machine', compound: false, level: 1 }),
   ex({ id: 'db-leg-curl', name: 'Сгибания ног с гантелью лёжа', pattern: 'hamCurl', needs: ['dumbbells', 'bench'], load: 'dumbbell', compound: false, level: 2 }),
   ex({ id: 'slider-curl', name: 'Сгибания ног на скользящих (полотенце на полу)', pattern: 'hamCurl', needs: [], load: 'bodyweight', compound: false, level: 2 }),

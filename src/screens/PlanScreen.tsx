@@ -26,7 +26,7 @@ export function PlanScreen({ onStart }: { onStart: () => void }) {
       dayTitle: day.title,
       startedAt: new Date().toISOString(),
       exercises: day.exercises.map((pe) => {
-        const s = suggest(pe, state.sessions)
+        const s = suggest(pe, state.sessions, state.profile)
         return {
           exerciseId: pe.exerciseId,
           repMin: pe.repMin,

@@ -9,6 +9,7 @@ export type Equipment =
   | 'bands'
   | 'cable'
   | 'machines'
+  | 'mat'
 
 export type Experience = 'beginner' | 'intermediate' | 'advanced'
 export type Sex = 'male' | 'female'
@@ -59,6 +60,10 @@ export interface Profile {
   /** Дни недели: 0 = пн … 6 = вс */
   weekdays: number[]
   minutes: number
+  /** Наборные гантели: вес одной гантели */
+  dumbbells?: { min: number; max: number; step: number }
+  /** Гриф с блинами */
+  bar?: { weight: number; maxPlates: number; step: number }
 }
 
 export interface PlannedExercise {
