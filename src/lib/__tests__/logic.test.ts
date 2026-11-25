@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { generatePlan, alternatives } from '../generator'
 import { suggest } from '../progression'
 import { weeklyRate, gainAdvice } from '../stats'
-import { getExercise } from '../../data/exercises'
+import { EXERCISES, getExercise } from '../../data/exercises'
 import type { Profile, Session } from '../../types'
 
 const base: Profile = { sex: 'male', age: 25, heightCm: 180, weightKg: 70, experience: 'beginner', equipment: [], weekdays: [0, 2, 4], minutes: 60 }
@@ -148,20 +148,6 @@ describe('muscle-group split', async () => {
   })
 })
 
-describe('activity payload', async () => {
-  const { parsePayload, upsert, lastDays } = await import('../activity')
-  it('parses full payload', () => expect(parsePayload('FITPLAN date=2026-11-25 steps=8432 km=6,1')).toEqual({ date: '2026-11-25', steps: 8432, km: 6.1 }))
-  it('parses spaces in numbers and units', () => expect(parsePayload('FITPLAN date=2026-11-25 steps=8 432 km=6,12 км', '2026-11-26')).toEqual({ date: '2026-11-25', steps: 8432, km: 6.12 }))
-  it('defaults date to today, meters → km', () => expect(parsePayload('fitplan steps=1200 km=950', '2026-11-26')).toEqual({ date: '2026-11-26', steps: 1200, km: 0.95 }))
-  it('rejects random clipboard', () => expect(parsePayload('hello 123')).toBeNull())
-  it('upsert replaces same day', () => expect(upsert([{ date: '2026-11-25', steps: 1, km: null }], { date: '2026-11-25', steps: 2, km: 1 })).toHaveLength(1))
-  it('lastDays fills gaps', () => {
-    const d = lastDays([{ date: '2026-11-24', steps: 5, km: null }], 3, '2026-11-25')
-    expect(d.map((x) => x.date)).toEqual(['2026-11-23', '2026-11-24', '2026-11-25'])
-    expect(d[1].entry?.steps).toBe(5)
-  })
-})
-
 describe('start weights', async () => {
   const { startWeight } = await import('../startWeights')
   const me: Profile = { ...base, weightKg: 72, experience: 'advanced', equipment: ['dumbbells', 'bench', 'barbell'], dumbbells: { min: 5, max: 25, step: 5 }, bar: { weight: 7, maxPlates: 30, step: 2.5 } }
@@ -177,4 +163,26 @@ describe('start weights', async () => {
     expect((w - 7) % 2.5).toBe(0)
   })
   it('suggest gives a starting weight', () => expect(suggest({ exerciseId: 'db-curl', sets: 3, repMin: 12, repMax: 20, restSec: 60 }, [], me).weight).toBe(10))
+})
+
+describe('no-reps workflow', async () => {
+  const { howTo, IMAGE_FOLDERS } = await import('../../data/howto')
+  const fs = await import('node:fs')
+  const p = { exerciseId: 'db-bench', sets: 4, repMin: 8, repMax: 15, restSec: 120 }
+  const me: Profile = { ...base, equipment: ['dumbbells', 'bench'], dumbbells: { min: 5, max: 25, step: 5 } }
+  const s = (hard: boolean): Session => ({
+    id: 'x', dayId: 'd1', dayTitle: 'x', startedAt: '2026-01-01T10:00:00Z', finishedAt: '2026-01-01T11:00:00Z',
+    exercises: [{ exerciseId: 'db-bench', repMin: 8, repMax: 15, hard, sets: Array.from({ length: 4 }, () => ({ weight: 15, reps: hard ? 8 : 15, done: true })) }],
+  })
+  it('all sets done → weight up', () => expect(suggest(p, [s(false)], me)).toMatchObject({ kind: 'up', weight: 20 }))
+  it('marked hard → same weight', () => expect(suggest(p, [s(true)], me)).toMatchObject({ kind: 'same', weight: 15 }))
+  it('every plan exercise has 4 sets', () => {
+    const plan = generatePlan({ ...me, splitMode: 'groups', weekdays: [0, 2, 4], equipment: ['dumbbells', 'bench', 'barbell', 'mat'] })
+    expect(plan.days.flatMap((d) => d.exercises).every((e) => e.sets === 4)).toBe(true)
+  })
+  it('home exercises have how-to and images exist on disk', () => {
+    const home = EXERCISES.filter((e) => e.needs.every((n) => ['dumbbells', 'bench', 'barbell', 'mat'].includes(n)))
+    for (const e of home) expect(howTo(e.id), e.id).not.toBeNull()
+    for (const f of IMAGE_FOLDERS) for (const i of [0, 1]) expect(fs.existsSync(`public/ex/${f}/${i}.jpg`), f).toBe(true)
+  })
 })

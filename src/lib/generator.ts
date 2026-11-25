@@ -72,25 +72,26 @@ export function candidates(pattern: Pattern, profile: Ctx, exclude: string[] = [
     .map((x) => x.e)
 }
 
-export function prescription(e: Exercise, isMain: boolean, experience: Experience, light = false): Omit<PlannedExercise, 'exerciseId'> {
+/** По умолчанию в каждом упражнении 4 подхода; меняются только повторы и отдых. */
+export const DEFAULT_SETS = 4
+
+export function prescription(e: Exercise, isMain: boolean, _experience: Experience, light = false): Omit<PlannedExercise, 'exerciseId'> {
+  const sets = DEFAULT_SETS
   const main = isMain && e.compound
-  if (e.pattern === 'core') return e.timed ? { sets: 3, repMin: 20, repMax: 45, restSec: 45 } : { sets: 3, repMin: 12, repMax: 20, restSec: 45 }
-  if (e.timed) return { sets: 3, repMin: 20, repMax: 45, restSec: 60 }
-  if (e.load === 'band') return { sets: 3, repMin: 12, repMax: 20, restSec: 60 }
-  if (e.load === 'bodyweight') {
-    return e.compound
-      ? { sets: experience === 'beginner' ? 3 : 4, repMin: 6, repMax: 15, restSec: 90 }
-      : { sets: 3, repMin: 10, repMax: 20, restSec: 60 }
-  }
+  const m = main ? { main: true } : {}
+  if (e.pattern === 'core') return e.timed ? { sets, repMin: 20, repMax: 45, restSec: 45 } : { sets, repMin: 12, repMax: 20, restSec: 45 }
+  if (e.timed) return { sets, repMin: 20, repMax: 45, restSec: 60 }
+  if (e.load === 'band') return { sets, repMin: 12, repMax: 20, restSec: 60 }
+  if (e.load === 'bodyweight') return e.compound ? { sets, repMin: 6, repMax: 15, restSec: 90 } : { sets, repMin: 10, repMax: 20, restSec: 60 }
   if (light && (e.load === 'dumbbell' || e.load === 'barbell' || e.load === 'kettlebell')) {
     // Вес ограничен — растим мышцы за счёт повторов, доводя подходы почти до отказа.
-    if (main) return { sets: experience === 'beginner' ? 3 : 4, repMin: 8, repMax: 15, restSec: 120, main: true }
-    if (e.compound) return { sets: 3, repMin: 10, repMax: 15, restSec: 90 }
-    return { sets: 3, repMin: 12, repMax: 20, restSec: 60 }
+    if (main) return { sets, repMin: 8, repMax: 15, restSec: 120, ...m }
+    if (e.compound) return { sets, repMin: 10, repMax: 15, restSec: 90 }
+    return { sets, repMin: 12, repMax: 20, restSec: 60 }
   }
-  if (main) return { sets: experience === 'beginner' ? 3 : 4, repMin: 6, repMax: 10, restSec: 150, main: true }
-  if (e.compound) return { sets: 3, repMin: 8, repMax: 12, restSec: 120 }
-  return { sets: 3, repMin: 10, repMax: 15, restSec: 75 }
+  if (main) return { sets, repMin: 6, repMax: 10, restSec: 150, ...m }
+  if (e.compound) return { sets, repMin: 8, repMax: 12, restSec: 120 }
+  return { sets, repMin: 10, repMax: 15, restSec: 75 }
 }
 
 function buildDay(tplKey: string, variant: number, profile: Profile, weekday: number, idx: number): PlanDay {

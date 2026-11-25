@@ -3,6 +3,7 @@ import { getExercise, PATTERN_LABEL } from '../data/exercises'
 import { alternatives, generatePlan, GROUPS, regenerateDay, swapExercise } from '../lib/generator'
 import { suggest } from '../lib/progression'
 import { ONE_DUMBBELL } from '../lib/startWeights'
+import { HowToSheet } from '../components/HowToSheet'
 import { thisWeekCount, todayWeekday, WEEKDAYS, WEEKDAYS_FULL } from '../lib/stats'
 import { uid, useStore } from '../store'
 import type { MuscleGroup, PlanDay, Session } from '../types'
@@ -21,6 +22,7 @@ export function PlanScreen({ onStart }: { onStart: () => void }) {
   const [openDay, setOpenDay] = useState<string | null>(todayDay?.id ?? null)
   const [swap, setSwap] = useState<{ day: PlanDay; index: number } | null>(null)
   const [confirmRegen, setConfirmRegen] = useState(false)
+  const [howId, setHowId] = useState<string | null>(null)
 
   const start = (day: PlanDay) => {
     if (state.active) return onStart()
@@ -126,7 +128,9 @@ export function PlanScreen({ onStart }: { onStart: () => void }) {
                   return (
                     <div key={i} className="flex items-center justify-between gap-3 border-b border-white/5 py-3 last:border-0">
                       <div className="min-w-0">
-                        <div className="text-[15px]">{e.name}</div>
+                        <button className="text-left text-[15px] underline decoration-white/20 underline-offset-4" onClick={() => setHowId(e.id)}>
+                          {e.name}
+                        </button>
                         <div className="text-xs text-white/50">
                           {pe.sets} × {pe.repMin}–{pe.repMax}
                           {e.timed ? ' сек' : ''}
@@ -183,6 +187,8 @@ export function PlanScreen({ onStart }: { onStart: () => void }) {
             )
           })()}
       </Sheet>
+
+      <HowToSheet exerciseId={howId} onClose={() => setHowId(null)} />
 
       <Sheet open={confirmRegen} onClose={() => setConfirmRegen(false)} title="Пересобрать план?">
         <p className="mb-4 text-sm text-white/60">Ручные замены упражнений сбросятся. История и прогресс останутся.</p>

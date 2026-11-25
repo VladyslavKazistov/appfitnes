@@ -9,3 +9,5 @@
 
 Структура: `src/data/exercises.ts` (база упражнений), `src/lib/generator.ts` (составление плана),
 `src/lib/progression.ts` (автопрогрессия), `src/screens/*` (экраны).
+
+Картинки упражнений (`public/ex/`) — [Free Exercise DB](https://github.com/yuhonas/free-exercise-db), лицензия Unlicense (общественное достояние).

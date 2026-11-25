@@ -1,15 +1,21 @@
 import { get, set } from 'idb-keyval'
 import type { AppState } from '../types'
 import { EQUIPMENT } from '../data/exercises'
-import { defaultDayGroups, generatePlan, rotateWeekIfNeeded } from './generator'
+import { DEFAULT_SETS, defaultDayGroups, generatePlan, rotateWeekIfNeeded } from './generator'
 import { DEFAULT_BAR, DEFAULT_DUMBBELLS } from './weights'
 
 const KEY = 'fitplan-state'
 
-export const EMPTY: AppState = { version: 1, profile: null, plan: null, sessions: [], active: null, bodyWeight: [], activity: [] }
+export const EMPTY: AppState = { version: 1, profile: null, plan: null, sessions: [], active: null, bodyWeight: [] }
 
 /** Миграции сохранённых данных между версиями приложения. */
 export function migrate(st: AppState): AppState {
+  // Вкладка «Шаги» удалена — убираем её старые данные.
+  if ('activity' in st) {
+    const { activity: _drop, ...rest } = st as AppState & { activity?: unknown }
+    void _drop
+    st = rest as AppState
+  }
   let p = st.profile
   if (!p) return st
   let changed = false
@@ -25,6 +31,9 @@ export function migrate(st: AppState): AppState {
     changed = true
   }
   const next = changed ? { ...st, profile: p, plan: generatePlan(p) } : st
+  // v0.4 → v0.5: в каждом упражнении 4 подхода.
+  if (next.plan && next.plan.days.some((d) => d.exercises.some((e) => e.sets !== DEFAULT_SETS)))
+    next.plan = { ...next.plan, days: next.plan.days.map((d) => ({ ...d, exercises: d.exercises.map((e) => ({ ...e, sets: DEFAULT_SETS })) })) }
   // Каждую неделю — новая подборка упражнений (для сплита по группам).
   const rotated = rotateWeekIfNeeded(next.plan, next.profile)
   return rotated === next.plan ? next : { ...next, plan: rotated }

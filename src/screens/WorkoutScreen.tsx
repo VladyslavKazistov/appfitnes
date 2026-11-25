@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getExercise } from '../data/exercises'
-import { lastReps, suggest } from '../lib/progression'
+import { suggest } from '../lib/progression'
+import { HowToSheet } from '../components/HowToSheet'
 import { doneSets } from '../lib/stats'
 import { useStore } from '../store'
 import type { ExerciseLog, Session, SetLog } from '../types'
@@ -69,6 +70,7 @@ export function WorkoutScreen({ onFinish }: { onFinish: (to: 'plan' | 'progress'
   const session = state.active
   const [restUntil, setRestUntil] = useState<number | null>(null)
   const [confirm, setConfirm] = useState<'finish' | 'cancel' | null>(null)
+  const [howId, setHowId] = useState<string | null>(null)
 
   if (!session) {
     return (
@@ -96,15 +98,26 @@ export function WorkoutScreen({ onFinish }: { onFinish: (to: 'plan' | 'progress'
       }),
     }))
 
-  const toggleDone = (ei: number, si: number, ex: ExerciseLog, placeholder: number) => {
+  // Повторы не вводятся: выполненный подход = цель по плану (или нижняя граница, если было тяжело).
+  const toggleDone = (ei: number, si: number, ex: ExerciseLog) => {
     const st = ex.sets[si]
     const done = !st.done
-    setSet(ei, si, { done, reps: st.reps ?? (done ? placeholder : null) })
+    setSet(ei, si, { done, reps: done ? (ex.hard ? ex.repMin : ex.repMax) : null })
     if (done) {
       const rest = day?.exercises.find((pe) => pe.exerciseId === ex.exerciseId)?.restSec ?? 90
       setRestUntil(Date.now() + rest * 1000)
     }
   }
+
+  const toggleHard = (ei: number) =>
+    patch((s) => ({
+      ...s,
+      exercises: s.exercises.map((e, i) => {
+        if (i !== ei) return e
+        const hard = !e.hard
+        return { ...e, hard, sets: e.sets.map((x) => (x.done ? { ...x, reps: hard ? e.repMin : e.repMax } : x)) }
+      }),
+    }))
 
   const total = session.exercises.reduce((a, e) => a + e.sets.length, 0)
   const done = doneSets(session)
@@ -131,29 +144,32 @@ export function WorkoutScreen({ onFinish }: { onFinish: (to: 'plan' | 'progress'
         const e = getExercise(ex.exerciseId)
         const planned = day?.exercises.find((pe) => pe.exerciseId === ex.exerciseId) ?? { exerciseId: ex.exerciseId, sets: ex.sets.length, repMin: ex.repMin, repMax: ex.repMax, restSec: 90 }
         const sug = suggest(planned, state.sessions, state.profile)
-        const prev = lastReps(planned, state.sessions)
         const weighted = e.load !== 'bodyweight' && e.load !== 'band'
         return (
           <Card key={ei}>
-            <div className="font-semibold">{e.name}</div>
-            <div className="text-xs text-white/50">
-              Цель: {ex.sets.length} × {ex.repMin}–{ex.repMax} {e.timed ? 'сек' : 'повт.'}
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="font-semibold">{e.name}</div>
+                <div className="text-xs text-white/50">
+                  {ex.sets.length} {[2, 3, 4].includes(ex.sets.length % 10) && ![12, 13, 14].includes(ex.sets.length % 100) ? 'подхода' : 'подходов'} × {ex.repMin}–{ex.repMax} {e.timed ? 'сек' : 'повт.'}
+                </div>
+              </div>
+              <button className="shrink-0 rounded-lg bg-white/8 px-2.5 py-1.5 text-xs text-white/80" onClick={() => setHowId(e.id)}>
+                Как делать
+              </button>
             </div>
             <div className={`mt-2 rounded-lg px-3 py-2 text-xs ${sug.kind === 'up' ? 'bg-accent/10 text-accent' : sug.kind === 'down' ? 'bg-amber-400/10 text-amber-300' : 'bg-white/5 text-white/60'}`}>
               {sug.note}
             </div>
-            {e.tip && <div className="mt-2 text-xs text-white/40">💡 {e.tip}</div>}
 
-            <div className="mt-3 grid grid-cols-[28px_1fr_1fr_48px] items-center gap-2 text-xs text-white/40">
+            <div className="mt-3 grid grid-cols-[28px_1fr_64px] items-center gap-2 text-xs text-white/40">
               <div>#</div>
-              <div>{e.load === 'dumbbell' ? 'Гантель, кг' : weighted ? 'Вес, кг' : e.load === 'band' ? 'Резинка' : 'Доп. вес'}</div>
-              <div>{e.timed ? 'Секунд' : 'Повторы'}</div>
-              <div />
+              <div>{e.load === 'dumbbell' ? 'Гантель, кг' : weighted ? 'Вес, кг' : e.load === 'band' ? 'Резинка' : 'Доп. вес, кг'}</div>
+              <div className="text-center">Готово</div>
             </div>
             {ex.sets.map((s, si) => {
-              const placeholder = prev[si] ?? ex.repMin
               return (
-                <div key={si} className={`mt-2 grid grid-cols-[28px_1fr_1fr_48px] items-center gap-2 ${s.done ? 'opacity-60' : ''}`}>
+                <div key={si} className={`mt-2 grid grid-cols-[28px_1fr_64px] items-center gap-2 ${s.done ? 'opacity-60' : ''}`}>
                   <div className="text-sm text-white/50">{si + 1}</div>
                   <input
                     inputMode="decimal"
@@ -162,16 +178,9 @@ export function WorkoutScreen({ onFinish }: { onFinish: (to: 'plan' | 'progress'
                     value={s.weight ?? ''}
                     onChange={(ev) => setSet(ei, si, { weight: num(ev.target.value) })}
                   />
-                  <input
-                    inputMode="numeric"
-                    placeholder={String(placeholder)}
-                    className="h-11 w-full min-w-0 rounded-xl bg-white/5 text-center text-lg outline-none ring-1 ring-white/10 placeholder:text-white/25 focus:ring-accent/60"
-                    value={s.reps ?? ''}
-                    onChange={(ev) => setSet(ei, si, { reps: num(ev.target.value) })}
-                  />
                   <button
                     aria-label="Подход выполнен"
-                    onClick={() => toggleDone(ei, si, ex, placeholder)}
+                    onClick={() => toggleDone(ei, si, ex)}
                     className={`h-11 rounded-xl text-lg font-bold ring-1 transition ${s.done ? 'bg-accent text-ink ring-accent' : 'bg-white/5 text-white/30 ring-white/10'}`}
                   >
                     ✓
@@ -179,7 +188,13 @@ export function WorkoutScreen({ onFinish }: { onFinish: (to: 'plan' | 'progress'
                 </div>
               )
             })}
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                className={`rounded-lg px-3 py-1.5 text-xs ring-1 ${ex.hard ? 'bg-amber-400/15 text-amber-300 ring-amber-400/40' : 'bg-white/5 text-white/60 ring-transparent'}`}
+                onClick={() => toggleHard(ei)}
+              >
+                {ex.hard ? '😮‍💨 Было тяжело' : 'Было тяжело?'}
+              </button>
               <button
                 className="rounded-lg bg-white/5 px-3 py-1.5 text-xs text-white/60"
                 onClick={() => patch((ss) => ({ ...ss, exercises: ss.exercises.map((x, i) => (i === ei ? { ...x, sets: [...x.sets, { weight: x.sets.at(-1)?.weight ?? null, reps: null, done: false }] } : x)) }))}
@@ -205,6 +220,8 @@ export function WorkoutScreen({ onFinish }: { onFinish: (to: 'plan' | 'progress'
       <Button variant="ghost" className="w-full text-sm" onClick={() => setConfirm('cancel')}>
         Отменить без сохранения
       </Button>
+
+      <HowToSheet exerciseId={howId} onClose={() => setHowId(null)} />
 
       {restUntil && <RestTimer until={restUntil} onDone={() => setRestUntil(null)} onAdd={(s) => setRestUntil((u) => (u ?? Date.now()) + s * 1000)} />}
 

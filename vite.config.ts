@@ -10,6 +10,16 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        // Картинки упражнений не грузим заранее, а кешируем при первом просмотре.
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.includes('/ex/'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'exercise-images', expiration: { maxEntries: 400 } },
+          },
+        ],
+      },
       includeAssets: ['apple-touch-icon.png', 'icon.svg'],
       manifest: {
         name: 'FitPlan — мой план тренировок',
