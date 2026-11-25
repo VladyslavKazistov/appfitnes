@@ -1,6 +1,7 @@
 import { getExercise } from '../data/exercises'
 import type { ExerciseLog, Load, PlannedExercise, Profile, Session } from '../types'
 import { availableWeights, nextUp, snapDown } from './weights'
+import { startWeight } from './startWeights'
 
 export interface Suggestion {
   weight: number | null
@@ -52,6 +53,13 @@ export function suggest(planned: PlannedExercise, sessions: Session[], profile?:
   if (logs.length === 0) {
     if (e.load === 'bodyweight' || e.load === 'band')
       return { weight: null, kind: 'new', note: `Первый раз: делай ${planned.repMin}–${planned.repMax} ${unit}, оставляя 1–2 в запасе.` }
+    const sw = startWeight(planned, profile)
+    if (sw != null)
+      return {
+        weight: sw,
+        kind: 'new',
+        note: `Стартовый вес — ${sw} кг${perHand}, оценка по твоему весу тела. Если ${planned.repMax} повторов даются легко — бери тяжелее, если не получается ${planned.repMin} — легче. Дальше вес будет подстраиваться сам.`,
+      }
     return {
       weight: null,
       kind: 'new',

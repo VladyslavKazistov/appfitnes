@@ -128,7 +128,12 @@ export function PlanScreen({ onStart }: { onStart: () => void }) {
                         <div className="text-[15px]">{e.name}</div>
                         <div className="text-xs text-white/50">
                           {pe.sets} × {pe.repMin}–{pe.repMax}
-                          {e.timed ? ' сек' : ''} · отдых {Math.round(pe.restSec / 60 * 10) / 10} мин
+                          {e.timed ? ' сек' : ''}
+                          {(() => {
+                            const w = suggest(pe, state.sessions, profile).weight
+                            return w ? <span className="font-semibold text-accent"> · {w} кг{e.load === 'dumbbell' ? ' ×2' : ''}</span> : null
+                          })()}
+                          {' '}· отдых {Math.round(pe.restSec / 60 * 10) / 10} мин
                         </div>
                       </div>
                       <button className="shrink-0 rounded-lg bg-white/5 px-2.5 py-1.5 text-xs text-white/70" onClick={() => setSwap({ day, index: i })}>

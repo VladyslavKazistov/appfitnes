@@ -143,3 +143,20 @@ describe('activity payload', async () => {
     expect(d[1].entry?.steps).toBe(5)
   })
 })
+
+describe('start weights', async () => {
+  const { startWeight } = await import('../startWeights')
+  const me: Profile = { ...base, weightKg: 72, experience: 'advanced', equipment: ['dumbbells', 'bench', 'barbell'], dumbbells: { min: 5, max: 25, step: 5 }, bar: { weight: 7, maxPlates: 30, step: 2.5 } }
+  it('uses only real dumbbells', () => {
+    const w = startWeight({ exerciseId: 'db-bench', sets: 4, repMin: 8, repMax: 15, restSec: 120 }, me)!
+    expect([5, 10, 15, 20, 25]).toContain(w)
+    expect(w).toBe(25)
+  })
+  it('bar weight within bar + plates', () => {
+    const w = startWeight({ exerciseId: 'bb-curl', sets: 3, repMin: 12, repMax: 20, restSec: 60 }, me)!
+    expect(w).toBeGreaterThanOrEqual(7)
+    expect(w).toBeLessThanOrEqual(37)
+    expect((w - 7) % 2.5).toBe(0)
+  })
+  it('suggest gives a starting weight', () => expect(suggest({ exerciseId: 'db-curl', sets: 3, repMin: 12, repMax: 20, restSec: 60 }, [], me).weight).toBe(10))
+})
