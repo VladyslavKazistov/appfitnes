@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { getExercise, PATTERN_LABEL } from '../data/exercises'
-import { alternatives, generatePlan, swapExercise } from '../lib/generator'
+import { alternatives, generatePlan, GROUPS, regenerateDay, swapExercise } from '../lib/generator'
 import { suggest } from '../lib/progression'
 import { thisWeekCount, todayWeekday, WEEKDAYS, WEEKDAYS_FULL } from '../lib/stats'
 import { uid, useStore } from '../store'
-import type { PlanDay, Session } from '../types'
+import type { MuscleGroup, PlanDay, Session } from '../types'
+import { Chip } from '../components/ui'
 import { Button, Card, Sheet } from '../components/ui'
+
+const GROUP_SHORT: Record<MuscleGroup, string> = { chest: 'Гр', back: 'Сп', shoulders: 'Пл', legs: 'Ног', biceps: 'Бц', triceps: 'Тр', core: 'Пр' }
 
 export function PlanScreen({ onStart }: { onStart: () => void }) {
   const { state, update } = useStore()
@@ -40,6 +43,17 @@ export function PlanScreen({ onStart }: { onStart: () => void }) {
   }
 
   const doneThisWeek = thisWeekCount(state.sessions)
+
+  const setDayGroups = (day: PlanDay, g: MuscleGroup) => {
+    const cur = day.groups ?? []
+    const next = cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g]
+    if (!next.length) return
+    update((st) => {
+      const prof = { ...st.profile!, dayGroups: { ...(st.profile!.dayGroups ?? {}), [day.weekday]: next } }
+      return { ...st, profile: prof, plan: regenerateDay(st.plan!, day.id, prof, next) }
+    })
+  }
+  const reroll = (day: PlanDay) => update((st) => ({ ...st, plan: regenerateDay(st.plan!, day.id, st.profile!, undefined, Math.random) }))
   const doneToday = state.sessions.some((s) => s.finishedAt && new Date(s.startedAt).toDateString() === new Date().toDateString())
 
   return (
@@ -58,7 +72,7 @@ export function PlanScreen({ onStart }: { onStart: () => void }) {
           return (
             <div key={d} className={`flex-1 rounded-xl py-2 text-center text-xs ring-1 ${i === today ? 'ring-accent/70' : 'ring-white/5'} ${pd ? 'bg-accent/10' : 'bg-white/3'}`}>
               <div className={i === today ? 'text-accent font-semibold' : 'text-white/60'}>{d}</div>
-              <div className="mt-0.5 truncate px-0.5 text-[10px] text-white/40">{pd ? pd.title.replace('Всё тело', 'Тело') : '—'}</div>
+              <div className="mt-0.5 truncate px-0.5 text-[10px] text-white/40">{pd ? (pd.groups?.length ? pd.groups.map((g) => GROUP_SHORT[g]).join('+') : pd.title.replace('Всё тело', 'Тело')) : '—'}</div>
             </div>
           )
         })}
@@ -84,13 +98,28 @@ export function PlanScreen({ onStart }: { onStart: () => void }) {
                   {WEEKDAYS[day.weekday]} · {day.title}
                 </div>
                 <div className="text-xs text-white/50">
-                  {day.focus} · {day.exercises.length} упр.
+                  {day.focus ? `${day.focus} · ` : ''}{day.exercises.length} упр.
                 </div>
               </div>
               <span className={`text-white/40 transition ${open ? 'rotate-180' : ''}`}>⌄</span>
             </button>
             {open && (
               <div className="border-t border-white/5 px-4 pb-4">
+                {day.groups && (
+                  <div className="border-b border-white/5 py-3">
+                    <div className="mb-2 text-xs text-white/50">Группы мышц этого дня</div>
+                    <div className="flex flex-wrap gap-2">
+                      {GROUPS.map((g) => (
+                        <Chip key={g.id} active={day.groups!.includes(g.id)} onClick={() => setDayGroups(day, g.id)}>
+                          {g.label}
+                        </Chip>
+                      ))}
+                    </div>
+                    <Button variant="soft" className="mt-3 w-full text-sm" onClick={() => reroll(day)}>
+                      🔄 Сгенерировать заново
+                    </Button>
+                  </div>
+                )}
                 {day.exercises.map((pe, i) => {
                   const e = getExercise(pe.exerciseId)
                   return (

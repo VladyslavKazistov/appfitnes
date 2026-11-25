@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { EQUIPMENT } from '../data/exercises'
-import type { Equipment, Profile } from '../types'
+import type { Equipment, MuscleGroup, Profile } from '../types'
+import { defaultDayGroups, GROUPS } from '../lib/generator'
 import { DEFAULT_BAR, DEFAULT_DUMBBELLS } from '../lib/weights'
-import { WEEKDAYS } from '../lib/stats'
+import { WEEKDAYS, WEEKDAYS_FULL } from '../lib/stats'
 import { Button, Card, Chip, Label, Stepper } from '../components/ui'
 
 const DEFAULT: Profile = {
@@ -14,6 +15,8 @@ const DEFAULT: Profile = {
   equipment: ['dumbbells', 'bench', 'barbell', 'mat'],
   dumbbells: DEFAULT_DUMBBELLS,
   bar: DEFAULT_BAR,
+  splitMode: 'groups',
+  dayGroups: defaultDayGroups([0, 2, 4]),
   weekdays: [0, 2, 4],
   minutes: 60,
 }
@@ -24,6 +27,15 @@ export function ProfileForm({ initial, onSave, submitLabel }: { initial?: Profil
   const dumb = p.dumbbells ?? DEFAULT_DUMBBELLS
   const bar = p.bar ?? DEFAULT_BAR
   const toggleEq = (id: Equipment) => set('equipment', p.equipment.includes(id) ? p.equipment.filter((e) => e !== id) : [...p.equipment, id])
+  const days = [...p.weekdays].sort((a, b) => a - b)
+  const groupsFor = (wd: number): MuscleGroup[] => p.dayGroups?.[wd] ?? defaultDayGroups(days)[wd] ?? []
+  const toggleGroup = (wd: number, g: MuscleGroup) => {
+    const cur = groupsFor(wd)
+    const next = cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g]
+    if (next.length) set('dayGroups', { ...(p.dayGroups ?? {}), [wd]: next })
+  }
+  const finalize = (): Profile =>
+    p.splitMode === 'groups' ? { ...p, dayGroups: Object.fromEntries(days.map((wd) => [wd, groupsFor(wd)])) } : p
   const toggleDay = (d: number) => set('weekdays', p.weekdays.includes(d) ? p.weekdays.filter((x) => x !== d) : [...p.weekdays, d].sort())
 
   return (
@@ -117,7 +129,38 @@ export function ProfileForm({ initial, onSave, submitLabel }: { initial?: Profil
         </div>
       </Card>
 
-      <Button className="w-full" disabled={p.weekdays.length === 0} onClick={() => onSave(p)}>
+      <Card>
+        <Label>Как делить тренировки</Label>
+        <div className="flex gap-2">
+          <Chip active={p.splitMode === 'groups'} onClick={() => set('splitMode', 'groups')}>
+            По группам мышц
+          </Chip>
+          <Chip active={p.splitMode !== 'groups'} onClick={() => set('splitMode', 'auto')}>
+            Автоматически
+          </Chip>
+        </div>
+        {p.splitMode === 'groups' ? (
+          <div className="mt-4 space-y-4">
+            {days.map((wd) => (
+              <div key={wd}>
+                <div className="mb-2 text-sm text-white/70">{WEEKDAYS_FULL[wd]}</div>
+                <div className="flex flex-wrap gap-2">
+                  {GROUPS.map((g) => (
+                    <Chip key={g.id} active={groupsFor(wd).includes(g.id)} onClick={() => toggleGroup(wd, g.id)}>
+                      {g.label}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {days.length === 0 && <p className="text-xs text-white/40">Сначала выбери дни тренировок.</p>}
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-white/40">Приложение само подберёт схему под число дней: всё тело, верх/низ или жим/тяга/ноги.</p>
+        )}
+      </Card>
+
+      <Button className="w-full" disabled={p.weekdays.length === 0} onClick={() => onSave(finalize())}>
         {submitLabel}
       </Button>
     </div>

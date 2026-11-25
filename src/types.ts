@@ -32,6 +32,8 @@ export type Pattern =
   | 'calves'
   | 'core'
 
+export type MuscleGroup = 'chest' | 'back' | 'shoulders' | 'biceps' | 'triceps' | 'legs' | 'core'
+
 export type Load = 'barbell' | 'dumbbell' | 'kettlebell' | 'machine' | 'bodyweight' | 'band'
 
 export interface Exercise {
@@ -64,6 +66,10 @@ export interface Profile {
   dumbbells?: { min: number; max: number; step: number }
   /** Гриф с блинами */
   bar?: { weight: number; maxPlates: number; step: number }
+  /** auto — сплит подбирается сам; groups — свои группы мышц на каждый день */
+  splitMode?: 'auto' | 'groups'
+  /** Группы мышц по дню недели (0 = пн) */
+  dayGroups?: Record<number, MuscleGroup[]>
 }
 
 export interface PlannedExercise {
@@ -72,6 +78,8 @@ export interface PlannedExercise {
   repMin: number
   repMax: number
   restSec: number
+  /** Базовое упражнение дня: больше подходов, меньше повторов */
+  main?: boolean
 }
 
 export interface PlanDay {
@@ -79,6 +87,7 @@ export interface PlanDay {
   title: string
   focus: string
   weekday: number
+  groups?: MuscleGroup[]
   exercises: PlannedExercise[]
 }
 

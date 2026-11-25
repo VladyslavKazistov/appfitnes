@@ -96,3 +96,36 @@ describe('migrate old profile', async () => {
     expect(st.plan).not.toBeNull()
   })
 })
+
+describe('muscle-group split', async () => {
+  const { regenerateDay } = await import('../generator')
+  const home: Profile = {
+    ...base, experience: 'advanced', equipment: ['dumbbells', 'bench', 'barbell', 'mat'], weekdays: [0, 2, 4],
+    dumbbells: { min: 5, max: 25, step: 5 }, bar: { weight: 7, maxPlates: 30, step: 2.5 }, splitMode: 'groups',
+  }
+  const plan = generatePlan(home)
+  const patterns = (i: number) => plan.days[i].exercises.map((e) => getExercise(e.exerciseId).pattern)
+  it('default: chest+biceps / back+triceps / shoulders+legs', () => {
+    expect(plan.days.map((d) => d.groups)).toEqual([['chest', 'biceps'], ['back', 'triceps'], ['shoulders', 'legs']])
+    expect(plan.days[0].title).toBe('Грудь + Бицепс')
+    expect(patterns(0).every((p) => ['hPush', 'chestIso', 'biceps'].includes(p))).toBe(true)
+    expect(patterns(0)).toContain('biceps')
+    expect(patterns(1).every((p) => ['hPull', 'vPull', 'rearDelt', 'triceps'].includes(p))).toBe(true)
+    expect(patterns(2)).toContain('squat')
+    expect(patterns(2)).toContain('vPush')
+    for (const d of plan.days) expect(d.exercises.length).toBeGreaterThanOrEqual(5)
+  })
+  it('regenerate keeps groups and equipment', () => {
+    let seed = 1
+    const rng = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+    const p2 = regenerateDay(plan, 'd1', home, undefined, rng)
+    expect(p2.days[0].groups).toEqual(['chest', 'biceps'])
+    for (const pe of p2.days[0].exercises) for (const n of getExercise(pe.exerciseId).needs) expect(home.equipment).toContain(n)
+    expect(p2.days[1]).toBe(plan.days[1])
+  })
+  it('change groups for one day', () => {
+    const p3 = regenerateDay(plan, 'd3', home, ['legs'])
+    expect(p3.days[2].title).toBe('Ноги')
+    expect(p3.days[2].exercises.every((e) => ['squat', 'hinge', 'lunge', 'hamCurl', 'calves', 'quadIso'].includes(getExercise(e.exerciseId).pattern))).toBe(true)
+  })
+})

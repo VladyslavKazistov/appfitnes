@@ -1,20 +1,30 @@
 import { get, set } from 'idb-keyval'
 import type { AppState } from '../types'
 import { EQUIPMENT } from '../data/exercises'
-import { generatePlan } from './generator'
+import { defaultDayGroups, generatePlan } from './generator'
 import { DEFAULT_BAR, DEFAULT_DUMBBELLS } from './weights'
 
 const KEY = 'fitplan-state'
 
 export const EMPTY: AppState = { version: 1, profile: null, plan: null, sessions: [], active: null, bodyWeight: [] }
 
-/** v0.1 → v0.2: опыт «опытный», только домашний инвентарь, веса гантелей и грифа. */
+/** Миграции сохранённых данных между версиями приложения. */
 export function migrate(st: AppState): AppState {
-  const p = st.profile
-  if (!p || p.dumbbells) return st
-  const allowed = EQUIPMENT.map((e) => e.id)
-  const profile = { ...p, experience: 'advanced' as const, equipment: p.equipment.filter((e) => allowed.includes(e)), dumbbells: DEFAULT_DUMBBELLS, bar: DEFAULT_BAR }
-  return { ...st, profile, plan: generatePlan(profile) }
+  let p = st.profile
+  if (!p) return st
+  let changed = false
+  // v0.1 → v0.2: опыт «опытный», только домашний инвентарь, веса гантелей и грифа.
+  if (!p.dumbbells) {
+    const allowed = EQUIPMENT.map((e) => e.id)
+    p = { ...p, experience: 'advanced' as const, equipment: p.equipment.filter((e) => allowed.includes(e)), dumbbells: DEFAULT_DUMBBELLS, bar: DEFAULT_BAR }
+    changed = true
+  }
+  // v0.2 → v0.3: сплит по группам мышц.
+  if (!p.splitMode) {
+    p = { ...p, splitMode: 'groups', dayGroups: defaultDayGroups(p.weekdays) }
+    changed = true
+  }
+  return changed ? { ...st, profile: p, plan: generatePlan(p) } : st
 }
 
 export async function load(): Promise<AppState> {

@@ -1,5 +1,5 @@
 import { EXERCISES, getExercise } from '../data/exercises'
-import type { Equipment, Exercise, Experience, Load, Pattern, Plan, PlanDay, PlannedExercise, Profile } from '../types'
+import type { Equipment, Exercise, Experience, Load, MuscleGroup, Pattern, Plan, PlanDay, PlannedExercise, Profile } from '../types'
 import { capacity, isLightLoad } from './weights'
 
 type Template = { title: string; focus: string; slots: Pattern[] }
@@ -70,8 +70,8 @@ export function candidates(pattern: Pattern, profile: Ctx, exclude: string[] = [
     .map((x) => x.e)
 }
 
-export function prescription(e: Exercise, slotIndex: number, experience: Experience, light = false): Omit<PlannedExercise, 'exerciseId'> {
-  const main = slotIndex < 2 && e.compound
+export function prescription(e: Exercise, isMain: boolean, experience: Experience, light = false): Omit<PlannedExercise, 'exerciseId'> {
+  const main = isMain && e.compound
   if (e.timed) return { sets: 3, repMin: 20, repMax: 45, restSec: 60 }
   if (e.load === 'band') return { sets: 3, repMin: 12, repMax: 20, restSec: 60 }
   if (e.load === 'bodyweight') {
@@ -81,11 +81,11 @@ export function prescription(e: Exercise, slotIndex: number, experience: Experie
   }
   if (light && (e.load === 'dumbbell' || e.load === 'barbell' || e.load === 'kettlebell')) {
     // Вес ограничен — растим мышцы за счёт повторов, доводя подходы почти до отказа.
-    if (main) return { sets: experience === 'beginner' ? 3 : 4, repMin: 8, repMax: 15, restSec: 120 }
+    if (main) return { sets: experience === 'beginner' ? 3 : 4, repMin: 8, repMax: 15, restSec: 120, main: true }
     if (e.compound) return { sets: 3, repMin: 10, repMax: 15, restSec: 90 }
     return { sets: 3, repMin: 12, repMax: 20, restSec: 60 }
   }
-  if (main) return { sets: experience === 'beginner' ? 3 : 4, repMin: 6, repMax: 10, restSec: 150 }
+  if (main) return { sets: experience === 'beginner' ? 3 : 4, repMin: 6, repMax: 10, restSec: 150, main: true }
   if (e.compound) return { sets: 3, repMin: 8, repMax: 12, restSec: 120 }
   return { sets: 3, repMin: 10, repMax: 15, restSec: 75 }
 }
@@ -105,7 +105,7 @@ function buildDay(tplKey: string, variant: number, profile: Profile, weekday: nu
     const pool = list.filter((e) => score(e, profile) >= best - 0.75 && e.compound === list[0].compound).slice(0, 2)
     const pick = pool[variant % pool.length]
     used.push(pick.id)
-    exercises.push({ exerciseId: pick.id, ...prescription(pick, exercises.length, profile.experience, isLightLoad(profile)) })
+    exercises.push({ exerciseId: pick.id, ...prescription(pick, exercises.length < 2, profile.experience, isLightLoad(profile)) })
   }
   return {
     id: `d${idx + 1}`,
@@ -117,6 +117,7 @@ function buildDay(tplKey: string, variant: number, profile: Profile, weekday: nu
 }
 
 export function generatePlan(profile: Profile): Plan {
+  if (profile.splitMode === 'groups') return generateGroupPlan(profile)
   const weekdays = [...profile.weekdays].sort((a, b) => a - b)
   const count = Math.max(1, Math.min(7, weekdays.length || 3))
   const split = SPLITS[count]
@@ -143,9 +144,111 @@ export function swapExercise(plan: Plan, dayId: string, index: number, newId: st
       const exercises = d.exercises.map((pe, i) => {
         if (i !== index) return pe
         const e = getExercise(newId)
-        return { exerciseId: newId, ...prescription(e, i, profile.experience, isLightLoad(profile)) }
+        return { exerciseId: newId, ...prescription(e, pe.main ?? i < 2, profile.experience, isLightLoad(profile)) }
       })
       return { ...d, exercises }
     }),
+  }
+}
+
+// ── Сплит по группам мышц ─────────────────────────────────────────────
+
+export const GROUPS: { id: MuscleGroup; label: string }[] = [
+  { id: 'chest', label: 'Грудь' },
+  { id: 'back', label: 'Спина' },
+  { id: 'shoulders', label: 'Плечи' },
+  { id: 'legs', label: 'Ноги' },
+  { id: 'biceps', label: 'Бицепс' },
+  { id: 'triceps', label: 'Трицепс' },
+  { id: 'core', label: 'Пресс' },
+]
+export const GROUP_LABEL = Object.fromEntries(GROUPS.map((g) => [g.id, g.label])) as Record<MuscleGroup, string>
+
+/** Движения для каждой группы в порядке важности. */
+const GROUP_SLOTS: Record<MuscleGroup, Pattern[]> = {
+  chest: ['hPush', 'hPush', 'chestIso', 'hPush', 'chestIso'],
+  back: ['hPull', 'vPull', 'hPull', 'rearDelt', 'hPull'],
+  shoulders: ['vPush', 'sideDelt', 'rearDelt', 'sideDelt', 'vPush'],
+  legs: ['squat', 'hinge', 'lunge', 'hamCurl', 'calves', 'lunge', 'quadIso'],
+  biceps: ['biceps', 'biceps', 'biceps'],
+  triceps: ['triceps', 'triceps', 'triceps'],
+  core: ['core', 'core'],
+}
+const BIG: MuscleGroup[] = ['chest', 'back', 'shoulders', 'legs']
+
+/** Схема по умолчанию: грудь+бицепс / спина+трицепс / плечи+ноги, дальше по кругу. */
+const DEFAULT_ROTATION: MuscleGroup[][] = [
+  ['chest', 'biceps'],
+  ['back', 'triceps'],
+  ['shoulders', 'legs'],
+]
+
+export function defaultDayGroups(weekdays: number[]): Record<number, MuscleGroup[]> {
+  const sorted = [...weekdays].sort((a, b) => a - b)
+  return Object.fromEntries(sorted.map((wd, i) => [wd, DEFAULT_ROTATION[i % DEFAULT_ROTATION.length]]))
+}
+
+export const groupsTitle = (groups: MuscleGroup[]) => (groups.length ? groups.map((g) => GROUP_LABEL[g]).join(' + ') : 'Без групп')
+
+/**
+ * Собирает тренировку под выбранные группы. rng — для «сгенерировать заново»:
+ * без него берутся лучшие упражнения, с ним — случайные из почти равноценных.
+ */
+export function buildGroupDay(groups: MuscleGroup[], profile: Profile, weekday: number, id: string, rng?: () => number): PlanDay {
+  const light = isLightLoad(profile)
+  const limit = exercisesPerSession(profile.minutes) + (light ? 1 : 0)
+  const ordered = [...groups].sort((a, b) => Number(BIG.includes(b)) - Number(BIG.includes(a)))
+  const used: string[] = []
+
+  // 1. Для каждой группы — упорядоченный список упражнений без повторов.
+  const perGroup = ordered.map((g) => {
+    const picks: Exercise[] = []
+    for (const pattern of GROUP_SLOTS[g]) {
+      const list = candidates(pattern, profile, used)
+      if (!list.length) continue
+      const best = score(list[0], profile)
+      // Базовое (первое) упражнение крупной группы выбираем только из лучших.
+      const tol = !rng ? 0 : picks.length === 0 && BIG.includes(g) ? 0.75 : 1.5
+      const pool = list.filter((e) => score(e, profile) >= best - tol)
+      const pick = rng ? pool[Math.floor(rng() * pool.length)] : pool[0]
+      used.push(pick.id)
+      picks.push(pick)
+    }
+    return { g, picks }
+  })
+
+  // 2. Делим лимит упражнений: крупным группам вдвое больше, чем мелким.
+  const weight = (g: MuscleGroup) => (BIG.includes(g) ? 2 : 1)
+  const total = perGroup.reduce((a, x) => a + weight(x.g), 0) || 1
+  const quota = perGroup.map((x) => Math.min(x.picks.length, Math.max(1, Math.floor((limit * weight(x.g)) / total))))
+  let left = limit - quota.reduce((a, b) => a + b, 0)
+  while (left > 0) {
+    const i = perGroup.findIndex((x, k) => quota[k] < x.picks.length)
+    if (i < 0) break
+    quota[i]++
+    left--
+  }
+
+  const exercises: PlannedExercise[] = []
+  perGroup.forEach((x, k) =>
+    x.picks.slice(0, quota[k]).forEach((e, j) => {
+      exercises.push({ exerciseId: e.id, ...prescription(e, j === 0 && BIG.includes(x.g), profile.experience, light) })
+    }),
+  )
+  return { id, title: groupsTitle(groups), focus: '', weekday, groups, exercises }
+}
+
+function generateGroupPlan(profile: Profile): Plan {
+  const weekdays = [...profile.weekdays].sort((a, b) => a - b)
+  const dayGroups = { ...defaultDayGroups(weekdays), ...(profile.dayGroups ?? {}) }
+  const days = weekdays.map((wd, i) => buildGroupDay(dayGroups[wd] ?? [], profile, wd, `d${i + 1}`))
+  return { createdAt: new Date().toISOString(), splitName: 'По группам мышц', days }
+}
+
+/** Пересобрать один день (новые группы и/или новые упражнения). */
+export function regenerateDay(plan: Plan, dayId: string, profile: Profile, groups?: MuscleGroup[], rng?: () => number): Plan {
+  return {
+    ...plan,
+    days: plan.days.map((d) => (d.id === dayId ? buildGroupDay(groups ?? d.groups ?? [], profile, d.weekday, d.id, rng) : d)),
   }
 }
