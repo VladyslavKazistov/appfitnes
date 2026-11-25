@@ -6,13 +6,15 @@ import { ProfileForm } from './screens/ProfileForm'
 import { PlanScreen } from './screens/PlanScreen'
 import { WorkoutScreen } from './screens/WorkoutScreen'
 import { ProgressScreen } from './screens/ProgressScreen'
+import { ActivityScreen } from './screens/ActivityScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 
-type Tab = 'plan' | 'workout' | 'progress' | 'settings'
+type Tab = 'plan' | 'workout' | 'activity' | 'progress' | 'settings'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'plan', label: 'План', icon: '📋' },
   { id: 'workout', label: 'Тренировка', icon: '🏋️' },
+  { id: 'activity', label: 'Шаги', icon: '👟' },
   { id: 'progress', label: 'Прогресс', icon: '📈' },
   { id: 'settings', label: 'Профиль', icon: '⚙️' },
 ]
@@ -43,16 +45,17 @@ export default function App() {
       <main className="px-4 pt-[calc(env(safe-area-inset-top)+16px)] pb-[calc(env(safe-area-inset-bottom)+96px)]">
         {tab === 'plan' && <PlanScreen onStart={() => setTab('workout')} />}
         {tab === 'workout' && <WorkoutScreen onFinish={setTab} />}
+        {tab === 'activity' && <ActivityScreen />}
         {tab === 'progress' && <ProgressScreen />}
         {tab === 'settings' && <SettingsScreen />}
       </main>
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/5 bg-ink/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
-        <div className="mx-auto grid max-w-lg grid-cols-4">
+        <div className="mx-auto grid max-w-lg grid-cols-5">
           {TABS.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)} className={`relative flex flex-col items-center gap-0.5 py-2.5 text-[11px] ${tab === t.id ? 'text-accent' : 'text-white/50'}`}>
               <span className="text-lg leading-none">{t.icon}</span>
               {t.label}
-              {t.id === 'workout' && state.active && <span className="absolute top-2 right-[30%] h-2 w-2 rounded-full bg-accent" />}
+              {t.id === 'workout' && state.active && <span className="absolute top-2 right-[25%] h-2 w-2 rounded-full bg-accent" />}
             </button>
           ))}
         </div>

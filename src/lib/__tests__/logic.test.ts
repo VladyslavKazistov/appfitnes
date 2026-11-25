@@ -129,3 +129,17 @@ describe('muscle-group split', async () => {
     expect(p3.days[2].exercises.every((e) => ['squat', 'hinge', 'lunge', 'hamCurl', 'calves', 'quadIso'].includes(getExercise(e.exerciseId).pattern))).toBe(true)
   })
 })
+
+describe('activity payload', async () => {
+  const { parsePayload, upsert, lastDays } = await import('../activity')
+  it('parses full payload', () => expect(parsePayload('FITPLAN date=2026-11-25 steps=8432 km=6,1')).toEqual({ date: '2026-11-25', steps: 8432, km: 6.1 }))
+  it('parses spaces in numbers and units', () => expect(parsePayload('FITPLAN date=2026-11-25 steps=8 432 km=6,12 км', '2026-11-26')).toEqual({ date: '2026-11-25', steps: 8432, km: 6.12 }))
+  it('defaults date to today, meters → km', () => expect(parsePayload('fitplan steps=1200 km=950', '2026-11-26')).toEqual({ date: '2026-11-26', steps: 1200, km: 0.95 }))
+  it('rejects random clipboard', () => expect(parsePayload('hello 123')).toBeNull())
+  it('upsert replaces same day', () => expect(upsert([{ date: '2026-11-25', steps: 1, km: null }], { date: '2026-11-25', steps: 2, km: 1 })).toHaveLength(1))
+  it('lastDays fills gaps', () => {
+    const d = lastDays([{ date: '2026-11-24', steps: 5, km: null }], 3, '2026-11-25')
+    expect(d.map((x) => x.date)).toEqual(['2026-11-23', '2026-11-24', '2026-11-25'])
+    expect(d[1].entry?.steps).toBe(5)
+  })
+})

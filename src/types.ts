@@ -70,6 +70,8 @@ export interface Profile {
   splitMode?: 'auto' | 'groups'
   /** Группы мышц по дню недели (0 = пн) */
   dayGroups?: Record<number, MuscleGroup[]>
+  /** Цель по шагам в день */
+  stepGoal?: number
 }
 
 export interface PlannedExercise {
@@ -124,6 +126,12 @@ export interface WeightEntry {
   kg: number
 }
 
+export interface ActivityEntry {
+  date: string // YYYY-MM-DD
+  steps: number
+  km: number | null
+}
+
 export interface AppState {
   version: 1
   profile: Profile | null
@@ -131,4 +139,5 @@ export interface AppState {
   sessions: Session[]
   active: Session | null
   bodyWeight: WeightEntry[]
+  activity: ActivityEntry[]
 }

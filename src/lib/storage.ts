@@ -6,7 +6,7 @@ import { DEFAULT_BAR, DEFAULT_DUMBBELLS } from './weights'
 
 const KEY = 'fitplan-state'
 
-export const EMPTY: AppState = { version: 1, profile: null, plan: null, sessions: [], active: null, bodyWeight: [] }
+export const EMPTY: AppState = { version: 1, profile: null, plan: null, sessions: [], active: null, bodyWeight: [], activity: [] }
 
 /** Миграции сохранённых данных между версиями приложения. */
 export function migrate(st: AppState): AppState {
