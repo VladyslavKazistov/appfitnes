@@ -98,35 +98,53 @@ describe('migrate old profile', async () => {
 })
 
 describe('muscle-group split', async () => {
-  const { regenerateDay } = await import('../generator')
+  const { regenerateDay, rotateWeekIfNeeded, generateGroupPlan } = await import('../generator')
   const home: Profile = {
-    ...base, experience: 'advanced', equipment: ['dumbbells', 'bench', 'barbell', 'mat'], weekdays: [0, 2, 4],
+    ...base, weightKg: 90, experience: 'advanced', equipment: ['dumbbells', 'bench', 'barbell', 'mat'], weekdays: [0, 2, 4],
     dumbbells: { min: 5, max: 25, step: 5 }, bar: { weight: 7, maxPlates: 30, step: 2.5 }, splitMode: 'groups',
   }
-  const plan = generatePlan(home)
-  const patterns = (i: number) => plan.days[i].exercises.map((e) => getExercise(e.exerciseId).pattern)
-  it('default: chest+biceps / back+triceps / shoulders+legs', () => {
+  const plan = generateGroupPlan(home, null, '2026-11-23')
+  const pats = (d: { exercises: { exerciseId: string }[] }) => d.exercises.map((e) => getExercise(e.exerciseId).pattern)
+  const count = (d: { exercises: { exerciseId: string }[] }, ps: string[]) => pats(d).filter((p) => ps.includes(p)).length
+  const CHEST = ['hPush', 'chestIso'], BACK = ['hPull', 'vPull', 'rearDelt']
+  it('exact counts per group + 3 core between blocks', () => {
     expect(plan.days.map((d) => d.groups)).toEqual([['chest', 'biceps'], ['back', 'triceps'], ['shoulders', 'legs']])
-    expect(plan.days[0].title).toBe('Грудь + Бицепс')
-    expect(patterns(0).every((p) => ['hPush', 'chestIso', 'biceps'].includes(p))).toBe(true)
-    expect(patterns(0)).toContain('biceps')
-    expect(patterns(1).every((p) => ['hPull', 'vPull', 'rearDelt', 'triceps'].includes(p))).toBe(true)
-    expect(patterns(2)).toContain('squat')
-    expect(patterns(2)).toContain('vPush')
-    for (const d of plan.days) expect(d.exercises.length).toBeGreaterThanOrEqual(5)
+    const [d1, d2, d3] = plan.days
+    expect(d1.title).toBe('Грудь + Бицепс')
+    expect(count(d1, CHEST)).toBe(3); expect(count(d1, ['biceps'])).toBe(2); expect(count(d1, ['core'])).toBe(3)
+    expect(pats(d1).slice(3, 6)).toEqual(['core', 'core', 'core'])
+    expect(count(d2, BACK)).toBe(3); expect(count(d2, ['triceps'])).toBe(2); expect(count(d2, ['core'])).toBe(3)
+    expect(count(d3, ['vPush', 'sideDelt', 'rearDelt'])).toBe(3); expect(count(d3, ['squat', 'hinge', 'lunge'])).toBe(3)
+    expect(d3.exercises).toHaveLength(9)
+    for (const d of plan.days) for (const pe of d.exercises) for (const n of getExercise(pe.exerciseId).needs) expect(home.equipment).toContain(n)
   })
-  it('regenerate keeps groups and equipment', () => {
-    let seed = 1
+  it('same week → same plan, next week → different exercises', () => {
+    expect(generateGroupPlan(home, null, '2026-11-23').days.map((d) => d.exercises.map((e) => e.exerciseId))).toEqual(plan.days.map((d) => d.exercises.map((e) => e.exerciseId)))
+    expect(rotateWeekIfNeeded(plan, home, '2026-11-23')).toBe(plan)
+    const next = rotateWeekIfNeeded(plan, home, '2026-11-30')!
+    expect(next.weekKey).toBe('2026-11-30')
+    for (let i = 0; i < 3; i++) {
+      const a = new Set(plan.days[i].exercises.map((e) => e.exerciseId))
+      const changed = next.days[i].exercises.filter((e) => !a.has(e.exerciseId)).length
+      expect(changed).toBeGreaterThanOrEqual(4)
+      const coreA = plan.days[i].exercises.filter((e) => getExercise(e.exerciseId).pattern === 'core').map((e) => e.exerciseId)
+      const coreB = next.days[i].exercises.filter((e) => getExercise(e.exerciseId).pattern === 'core').map((e) => e.exerciseId)
+      expect(coreB.some((id) => !coreA.includes(id))).toBe(true)
+    }
+  })
+  it('regenerate keeps groups, changes exercises', () => {
+    let seed = 7
     const rng = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
     const p2 = regenerateDay(plan, 'd1', home, undefined, rng)
     expect(p2.days[0].groups).toEqual(['chest', 'biceps'])
-    for (const pe of p2.days[0].exercises) for (const n of getExercise(pe.exerciseId).needs) expect(home.equipment).toContain(n)
+    expect(p2.days[0].exercises.map((e) => e.exerciseId)).not.toEqual(plan.days[0].exercises.map((e) => e.exerciseId))
     expect(p2.days[1]).toBe(plan.days[1])
   })
   it('change groups for one day', () => {
     const p3 = regenerateDay(plan, 'd3', home, ['legs'])
     expect(p3.days[2].title).toBe('Ноги')
-    expect(p3.days[2].exercises.every((e) => ['squat', 'hinge', 'lunge', 'hamCurl', 'calves', 'quadIso'].includes(getExercise(e.exerciseId).pattern))).toBe(true)
+    expect(count(p3.days[2], ['squat', 'hinge', 'lunge'])).toBe(3)
+    expect(count(p3.days[2], ['core'])).toBe(3)
   })
 })
 

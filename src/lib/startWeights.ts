@@ -15,6 +15,11 @@ const RATIO: Record<string, number> = {
   'db-curl': 0.17, 'hammer-curl': 0.19, 'db-incline-curl': 0.14, 'db-oh-ext': 0.3,
   'goblet-squat': 0.45, 'db-rdl': 0.4, 'db-sl-rdl': 0.3, 'db-split-squat': 0.25, 'db-lunge': 0.28,
   'db-step-up': 0.25, 'db-calf': 0.4, 'db-leg-curl': 0.15,
+  'db-squeeze-press': 0.28, 'db-incline-fly': 0.14, 'db-pullover-chest': 0.28, 'db-concentration-curl': 0.15, 'db-zottman': 0.14,
+  'db-kickback': 0.09, 'db-skull': 0.14, 'db-tate-press': 0.12, 'db-bent-row': 0.3, 'db-kroc-row': 0.33, 'db-shrug': 0.4,
+  'db-front-raise': 0.1, 'db-lying-lateral': 0.07, 'db-y-raise': 0.06, 'db-seated-ohp-neutral': 0.24,
+  'db-sumo-squat': 0.45, 'db-hip-thrust': 0.5, 'db-reverse-lunge': 0.28, 'russian-twist': 0.1, 'db-crunch': 0.12, 'db-side-bend': 0.3,
+  'bb-drag-curl': 0.38,
   // гриф / штанга
   'bb-curl': 0.45, 'bb-reverse-curl': 0.3, 'bb-skull': 0.4, 'bb-close-press': 0.75,
   'bb-row': 0.8, 'bb-rdl': 1.1, 'bb-ohp': 0.55, 'bb-bench': 1.0, 'bb-squat': 1.2, 'bb-deadlift': 1.5,
@@ -39,3 +44,9 @@ export function startWeight(pe: PlannedExercise, profile?: Profile | null): numb
   if (list && list.length) return list.reduce((best, x) => (Math.abs(x - w) < Math.abs(best - w) ? x : best), list[0])
   return Math.max(1, Math.round(w / 2.5) * 2.5)
 }
+
+/** Упражнения с одной гантелью (вес не умножается на 2). */
+export const ONE_DUMBBELL = new Set([
+  'db-pullover', 'db-pullover-chest', 'db-oh-ext', 'goblet-squat', 'db-sumo-squat', 'db-calf', 'db-side-bend',
+  'russian-twist', 'db-crunch', 'db-row', 'db-kroc-row', 'db-kickback', 'db-concentration-curl', 'db-hip-thrust', 'db-leg-curl',
+])

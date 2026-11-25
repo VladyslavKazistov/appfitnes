@@ -1,7 +1,7 @@
 import { getExercise } from '../data/exercises'
 import type { ExerciseLog, Load, PlannedExercise, Profile, Session } from '../types'
 import { availableWeights, nextUp, snapDown } from './weights'
-import { startWeight } from './startWeights'
+import { ONE_DUMBBELL, startWeight } from './startWeights'
 
 export interface Suggestion {
   weight: number | null
@@ -47,7 +47,7 @@ function missed(log: ExerciseLog): boolean {
 export function suggest(planned: PlannedExercise, sessions: Session[], profile?: Profile | null): Suggestion {
   const e = getExercise(planned.exerciseId)
   const list = availableWeights(e.load, profile)
-  const perHand = e.load === 'dumbbell' ? ' (вес одной гантели)' : ''
+  const perHand = e.load === 'dumbbell' && !ONE_DUMBBELL.has(e.id) ? ' (в каждой руке)' : ''
   const logs = history(planned.exerciseId, sessions)
   const unit = e.timed ? 'сек' : 'повт.'
   if (logs.length === 0) {

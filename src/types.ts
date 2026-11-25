@@ -97,6 +97,8 @@ export interface Plan {
   createdAt: string
   splitName: string
   days: PlanDay[]
+  /** Неделя, для которой подобраны упражнения (сплит по группам) */
+  weekKey?: string
 }
 
 export interface SetLog {

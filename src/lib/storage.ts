@@ -1,7 +1,7 @@
 import { get, set } from 'idb-keyval'
 import type { AppState } from '../types'
 import { EQUIPMENT } from '../data/exercises'
-import { defaultDayGroups, generatePlan } from './generator'
+import { defaultDayGroups, generatePlan, rotateWeekIfNeeded } from './generator'
 import { DEFAULT_BAR, DEFAULT_DUMBBELLS } from './weights'
 
 const KEY = 'fitplan-state'
@@ -24,7 +24,10 @@ export function migrate(st: AppState): AppState {
     p = { ...p, splitMode: 'groups', dayGroups: defaultDayGroups(p.weekdays) }
     changed = true
   }
-  return changed ? { ...st, profile: p, plan: generatePlan(p) } : st
+  const next = changed ? { ...st, profile: p, plan: generatePlan(p) } : st
+  // Каждую неделю — новая подборка упражнений (для сплита по группам).
+  const rotated = rotateWeekIfNeeded(next.plan, next.profile)
+  return rotated === next.plan ? next : { ...next, plan: rotated }
 }
 
 export async function load(): Promise<AppState> {

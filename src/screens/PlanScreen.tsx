@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { getExercise, PATTERN_LABEL } from '../data/exercises'
 import { alternatives, generatePlan, GROUPS, regenerateDay, swapExercise } from '../lib/generator'
 import { suggest } from '../lib/progression'
+import { ONE_DUMBBELL } from '../lib/startWeights'
 import { thisWeekCount, todayWeekday, WEEKDAYS, WEEKDAYS_FULL } from '../lib/stats'
 import { uid, useStore } from '../store'
 import type { MuscleGroup, PlanDay, Session } from '../types'
@@ -131,9 +132,9 @@ export function PlanScreen({ onStart }: { onStart: () => void }) {
                           {e.timed ? ' сек' : ''}
                           {(() => {
                             const w = suggest(pe, state.sessions, profile).weight
-                            return w ? <span className="font-semibold text-accent"> · {w} кг{e.load === 'dumbbell' ? ' ×2' : ''}</span> : null
+                            return w ? <span className="font-semibold text-accent"> · {w} кг{e.load === 'dumbbell' && !ONE_DUMBBELL.has(e.id) ? ' ×2' : ''}</span> : null
                           })()}
-                          {' '}· отдых {Math.round(pe.restSec / 60 * 10) / 10} мин
+                          {' '}· отдых {pe.restSec < 60 ? `${pe.restSec} с` : `${Math.round((pe.restSec / 60) * 10) / 10} мин`}
                         </div>
                       </div>
                       <button className="shrink-0 rounded-lg bg-white/5 px-2.5 py-1.5 text-xs text-white/70" onClick={() => setSwap({ day, index: i })}>

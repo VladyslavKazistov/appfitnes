@@ -123,10 +123,12 @@ export function ProfileForm({ initial, onSave, submitLabel }: { initial?: Profil
           ))}
         </div>
         <p className="mt-2 text-xs text-white/40">Для массы оптимально 3–4 дня, между тренировками одной мышцы — минимум день отдыха.</p>
-        <div className="mt-4 flex items-center justify-between">
-          <span>Минут на тренировку</span>
-          <Stepper value={p.minutes} onChange={(v) => set('minutes', v)} step={15} min={30} max={120} />
-        </div>
+        {p.splitMode !== 'groups' && (
+          <div className="mt-4 flex items-center justify-between">
+            <span>Минут на тренировку</span>
+            <Stepper value={p.minutes} onChange={(v) => set('minutes', v)} step={15} min={30} max={120} />
+          </div>
+        )}
       </Card>
 
       <Card>
@@ -141,6 +143,7 @@ export function ProfileForm({ initial, onSave, submitLabel }: { initial?: Profil
         </div>
         {p.splitMode === 'groups' ? (
           <div className="mt-4 space-y-4">
+            <p className="text-xs text-white/40">На группу: грудь, спина, плечи, ноги — по 3 упражнения, бицепс и трицепс — по 2. Пресс (3 упражнения) добавляется в каждый день сам. Каждую неделю упражнения меняются.</p>
             {days.map((wd) => (
               <div key={wd}>
                 <div className="mb-2 text-sm text-white/70">{WEEKDAYS_FULL[wd]}</div>
